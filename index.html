@@ -63,7 +63,7 @@
         // =========================================================================
         // 2. MASUKKAN LINK PDF BUKU PANDUAN (DARI GOOGLE DRIVE ANDA) DI BAWAH INI
         // =========================================================================
-        const LINK_PANDUAN_PDF = "https://drive.google.com/file/d/1_3WcSmsfbIzkKTa9xe1_ABqUV_Wvpvq9/view?usp=drive_link";
+        const LINK_PANDUAN_PDF = "https://drive.google.com/file/d/1_3WcSmsfbIzkKTa9xe1_ABqUV_Wvpvq9/view?usp=sharing";
 
         // --- CONSTANTS ---
         const KECAMATAN_LIST = [
@@ -248,7 +248,7 @@
                     <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-slate-800 p-2 mb-3 rounded transition-colors">
                         <i className="fas fa-sign-out-alt"></i> Keluar Akun
                     </button>
-                    Versi 6.1 (Tabel Lengkap 9 Metrik)
+                    Versi 6.2 (Persentase Penuh)
                     </div>
                 </aside>
 
@@ -455,19 +455,19 @@
                     const s = stats.ALL;
                     if (isLitNum) {
                         return (
-                            <div className="flex items-center justify-between w-full text-base md:text-lg font-bold">
+                            <div className="flex items-center justify-between w-full text-xl md:text-2xl font-extrabold mt-1">
                                 <span className="text-blue-600">L: {s.lit}%</span>
-                                <span className="text-slate-300 font-light">|</span>
+                                <span className="text-slate-300 font-light text-lg">|</span>
                                 <span className="text-indigo-600">N: {s.num}%</span>
                             </div>
                         );
                     }
                     const isPctOnly = key === 'kar';
                     const valStr = s[key];
-                    const pct = Math.round((Number(valStr) / 3) * 100);
+                    const pct = Math.round((Number(valStr) / 3) * 100) || 0;
                     return (
-                        <div className="text-base md:text-lg font-bold flex items-baseline justify-between w-full text-slate-700">
-                            {isPctOnly ? <span>{valStr}%</span> : <><span className="text-slate-700">{valStr}/3</span> <span className="text-[10px] md:text-xs text-slate-400">({pct}%)</span></>}
+                        <div className="text-xl md:text-2xl font-extrabold flex items-baseline justify-between w-full text-slate-700 mt-1">
+                            {isPctOnly ? <span>{valStr}%</span> : <><span className="text-slate-700">{valStr}/3</span> <span className="text-sm md:text-base text-slate-400 font-bold">({pct}%)</span></>}
                         </div>
                     );
                 }
@@ -492,8 +492,8 @@
                 const formatVal = (sObj) => {
                     if (isPctOnly) return <span>{sObj[key]}%</span>;
                     const valStr = sObj[key];
-                    const pct = Math.round((Number(valStr) / 3) * 100);
-                    return <>{valStr}/3 <span className="text-[10px] md:text-xs font-semibold opacity-75 ml-1">({pct}%)</span></>;
+                    const pct = Math.round((Number(valStr) / 3) * 100) || 0;
+                    return <>{valStr}/3 <span className="text-[10px] md:text-xs font-bold text-slate-400 ml-1">({pct}%)</span></>;
                 };
 
                 return (
@@ -597,7 +597,6 @@
                             <RechartsTooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px'}} />
                             <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '10px'}} />
                             
-                            {/* Rendering Lines based on role without using Fragment to avoid Recharts parsing issues */}
                             {isSekolah && <Line type="monotone" dataKey="Capaian Literasi (%)" stroke="#3b82f6" strokeWidth={3} dot={{r: 4}} key="lit-sek" />}
                             {isSekolah && <Line type="monotone" dataKey="Capaian Numerasi (%)" stroke="#6366f1" strokeWidth={3} dot={{r: 4}} key="num-sek" />}
                             
@@ -987,6 +986,13 @@
                 const refScore = Number(row.k_refleksi_1||0) + Number(row.k_refleksi_2||0) + Number(row.k_refleksi_3||0);
                 const pimScore = Number(row.k_pimpin_1||0) + Number(row.k_pimpin_2||0) + Number(row.k_pimpin_3||0);
 
+                const secPct = Math.round((secScore / 3) * 100) || 0;
+                const divPct = Math.round((divScore / 3) * 100) || 0;
+                const incPct = Math.round((incScore / 3) * 100) || 0;
+                const belPct = Math.round((belScore / 3) * 100) || 0;
+                const refPct = Math.round((refScore / 3) * 100) || 0;
+                const pimPct = Math.round((pimScore / 3) * 100) || 0;
+
                 const avgPct = (litPct + numPct + karPct) / 3;
                 const avgIklim = (secScore + divScore + incScore + belScore + refScore + pimScore) / 6;
 
@@ -994,7 +1000,11 @@
                 if (avgPct >= thresholds.pctTinggi && avgIklim >= thresholds.iklimTinggi) { kategori = '⭐⭐⭐'; tindakLanjut = 'Pertahankan Kinerja'; }
                 else if (avgPct >= thresholds.pctSedang || avgIklim >= thresholds.iklimSedang) { kategori = '⭐⭐'; tindakLanjut = 'Bimbingan Lanjutan'; }
                 
-                return { litPct, numPct, karPct, secScore, divScore, incScore, belScore, refScore, pimScore, kategori, tindakLanjut, litRaw, numRaw, karRaw };
+                return { 
+                    litPct, numPct, karPct, secScore, divScore, incScore, belScore, refScore, pimScore, 
+                    secPct, divPct, incPct, belPct, refPct, pimPct,
+                    kategori, tindakLanjut, litRaw, numRaw, karRaw 
+                };
             };
 
             const toggleSchool = (sekolah) => {
@@ -1173,19 +1183,49 @@
                                                                             <div className="text-[9px] md:text-[10px] bg-amber-100 inline-block px-1.5 rounded text-amber-700">{metrics.karPct}%</div>
                                                                         </td>
                                                                         
-                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.secScore} max={3} /></td>
-                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.divScore} max={3} /></td>
-                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.incScore} max={3} /></td>
-                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.belScore} max={3} /></td>
-                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.refScore} max={3} /></td>
-                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.pimScore} max={3} /></td>
+                                                                        <td className="p-2 align-middle">
+                                                                            <div className="flex flex-col items-center justify-center gap-1 mt-1">
+                                                                                <ScoreBadge score={metrics.secScore} max={3} />
+                                                                                <span className="text-[9px] md:text-[10px] text-slate-400 font-semibold">{metrics.secPct}%</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-2 align-middle">
+                                                                            <div className="flex flex-col items-center justify-center gap-1 mt-1">
+                                                                                <ScoreBadge score={metrics.divScore} max={3} />
+                                                                                <span className="text-[9px] md:text-[10px] text-slate-400 font-semibold">{metrics.divPct}%</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-2 align-middle">
+                                                                            <div className="flex flex-col items-center justify-center gap-1 mt-1">
+                                                                                <ScoreBadge score={metrics.incScore} max={3} />
+                                                                                <span className="text-[9px] md:text-[10px] text-slate-400 font-semibold">{metrics.incPct}%</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-2 align-middle">
+                                                                            <div className="flex flex-col items-center justify-center gap-1 mt-1">
+                                                                                <ScoreBadge score={metrics.belScore} max={3} />
+                                                                                <span className="text-[9px] md:text-[10px] text-slate-400 font-semibold">{metrics.belPct}%</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-2 align-middle">
+                                                                            <div className="flex flex-col items-center justify-center gap-1 mt-1">
+                                                                                <ScoreBadge score={metrics.refScore} max={3} />
+                                                                                <span className="text-[9px] md:text-[10px] text-slate-400 font-semibold">{metrics.refPct}%</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-2 align-middle">
+                                                                            <div className="flex flex-col items-center justify-center gap-1 mt-1">
+                                                                                <ScoreBadge score={metrics.pimScore} max={3} />
+                                                                                <span className="text-[9px] md:text-[10px] text-slate-400 font-semibold">{metrics.pimPct}%</span>
+                                                                            </div>
+                                                                        </td>
                                                                         
-                                                                        <td className="p-3">
+                                                                        <td className="p-3 align-middle">
                                                                             {row.tautan_bukti ? (
                                                                                 <a href={row.tautan_bukti} target="_blank" className="text-blue-600 hover:underline flex items-center gap-1"><i className="fas fa-link"></i> Buka Link</a>
                                                                             ) : <span className="text-slate-400">-</span>}
                                                                         </td>
-                                                                        <td className="p-3 text-center">
+                                                                        <td className="p-3 text-center align-middle">
                                                                             <button onClick={() => onDelete(row.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Hapus Data"><i className="fas fa-trash-alt"></i></button>
                                                                         </td>
                                                                     </tr>
