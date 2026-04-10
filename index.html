@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Pemantauan Pendidikan Dasar Donggala</title>
+    <title>Sistem MONEV Pendidikan Dasar Donggala</title>
     
     <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -56,9 +56,14 @@
         const { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, Legend, ResponsiveContainer } = window.Recharts;
 
         // =========================================================================
-        // MASUKKAN LINK GOOGLE APPS SCRIPT ANDA DI BAWAH INI
+        // 1. MASUKKAN LINK GOOGLE APPS SCRIPT ANDA DI BAWAH INI
         // =========================================================================
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHbZmUBOscyeBbCS7TlMh6WRWa1gNEITCQo2DdJv6fAguqFcY7H4-JnvyDP87oKfEP/exec"; 
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyTDC8zNsEsFEC147VP44faOmafb_Dxkh7rshze3WKAHurZM_FXjWUzGvMoTFztcls/exec"; 
+
+        // =========================================================================
+        // 2. MASUKKAN LINK PDF BUKU PANDUAN (DARI GOOGLE DRIVE ANDA) DI BAWAH INI
+        // =========================================================================
+        const LINK_PANDUAN_PDF = "https://drive.google.com/file/d/1_3WcSmsfbIzkKTa9xe1_ABqUV_Wvpvq9/view?usp=sharing";
 
         // --- CONSTANTS ---
         const KECAMATAN_LIST = [
@@ -94,11 +99,6 @@
             "Kelas 9": { "Triwulan 1": "Persamaan kuadrat sederhana.", "Triwulan 2": "Konsep peluang sederhana.", "Triwulan 3": "Menafsirkan data statistika.", "Triwulan 4": "Masalah kontekstual kompleks." }
         };
 
-        const MOCK_NPSN_DB = {
-            "10101234": { sekolah: "SDN 1 Banawa", kecamatan: "Banawa" },
-            "10105678": { sekolah: "SMPN 2 Sirenja", kecamatan: "Sirenja" }
-        };
-
         const DEFAULT_THRESHOLDS = { pctTinggi: 80, pctSedang: 60, iklimTinggi: 3, iklimSedang: 2 };
 
         function App() {
@@ -111,13 +111,13 @@
             const [isLoading, setIsLoading] = useState(false);
 
             const [thresholds, setThresholds] = useState(() => {
-                const saved = localStorage.getItem('sppd_thresholds_v2');
+                const saved = localStorage.getItem('monev_thresholds');
                 return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
             });
 
             const handleSaveThresholds = (newT) => {
                 setThresholds(newT);
-                localStorage.setItem('sppd_thresholds_v2', JSON.stringify(newT));
+                localStorage.setItem('monev_thresholds', JSON.stringify(newT));
             };
 
             useEffect(() => {
@@ -225,8 +225,8 @@
                         <img src="https://i.ibb.co.com/5xhN0cm1/Logo-Donggala.png" alt="Logo Donggala" className="w-8 h-8 object-contain" />
                     </div>
                     <div>
-                        <h1 className="font-bold text-sm leading-tight">SPPD Donggala</h1>
-                        <p className="text-[10px] text-slate-400">Pemantauan Pendidikan Dasar</p>
+                        <h1 className="font-bold text-sm leading-tight">MONEV Donggala</h1>
+                        <p className="text-[10px] text-slate-400">Monitoring & Evaluasi</p>
                     </div>
                     </div>
                     <nav className="flex-1 py-4 flex flex-col gap-1 px-3 overflow-y-auto no-scrollbar">
@@ -248,7 +248,7 @@
                     <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-slate-800 p-2 mb-3 rounded transition-colors">
                         <i className="fas fa-sign-out-alt"></i> Keluar Akun
                     </button>
-                    Versi 4.4 (Update Kartu)
+                    Versi 5.5 (Update Visual)
                     </div>
                 </aside>
 
@@ -320,64 +320,101 @@
 
         function Dashboard({ records, user, thresholds }) {
             const stats = useMemo(() => {
-                if (records.length === 0) return { lit: 0, num: 0, kar: 0, sec: 0, div: 0, inc: 0, bel: 0, ref: 0, pim: 0 };
-                
-                const latestRecordsMap = {};
-                records.forEach(r => {
-                    const key = `${r.sekolah}-${r.kelas}-${r.rombel}`.toLowerCase().replace(/\s+/g, '');
-                    if (!latestRecordsMap[key] || r.triwulan > latestRecordsMap[key].triwulan) {
-                        latestRecordsMap[key] = r;
+                const calculateForJenjang = (jenjangFilter) => {
+                    let filteredRecords = records;
+                    if (jenjangFilter) {
+                        filteredRecords = records.filter(r => r.jenjang === jenjangFilter);
                     }
-                });
 
-                let totalSiswa = 0, totalLit = 0, totalNum = 0, totalKar = 0;
-                let totalSec = 0, totalDiv = 0, totalInc = 0, totalBel = 0, totalRef = 0, totalPim = 0;
-                const uniqueRecords = Object.values(latestRecordsMap);
+                    const latestRecordsMap = {};
+                    filteredRecords.forEach(r => {
+                        const key = `${r.sekolah}-${r.kelas}-${r.rombel}`.toLowerCase().replace(/\s+/g, '');
+                        if (!latestRecordsMap[key] || r.triwulan > latestRecordsMap[key].triwulan) {
+                            latestRecordsMap[key] = r;
+                        }
+                    });
 
-                uniqueRecords.forEach(r => {
-                    totalSiswa += Number(r.jumlahSiswa); 
-                    totalLit += Number(r.tuntas_literasi || r.capaiLiterasi || 0); 
-                    totalNum += Number(r.tuntas_numerasi || r.capaiNumerasi || 0);
-                    
-                    totalKar += Number(r.karakter_teratur || 0) + Number(r.karakter_pantang_menyerah || 0) + Number(r.karakter_mandiri || 0);
-                    
-                    totalSec += Number(r.k_aman_1||0) + Number(r.k_aman_2||0) + Number(r.k_aman_3||0) || Number(r.keamanan||0);
-                    totalDiv += Number(r.k_bineka_1||0) + Number(r.k_bineka_2||0) + Number(r.k_bineka_3||0) || Number(r.kebinekaan||0);
-                    totalInc += Number(r.k_inklusif_1||0) + Number(r.k_inklusif_2||0) + Number(r.k_inklusif_3||0) || Number(r.inklusivitas||0);
-                    
-                    totalBel += Number(r.k_belajar_1||0) + Number(r.k_belajar_2||0) + Number(r.k_belajar_3||0);
-                    totalRef += Number(r.k_refleksi_1||0) + Number(r.k_refleksi_2||0) + Number(r.k_refleksi_3||0);
-                    totalPim += Number(r.k_pimpin_1||0) + Number(r.k_pimpin_2||0) + Number(r.k_pimpin_3||0);
-                });
+                    let totalSiswa = 0, totalLit = 0, totalNum = 0, totalKar = 0;
+                    let totalSec = 0, totalDiv = 0, totalInc = 0, totalBel = 0, totalRef = 0, totalPim = 0;
+                    const uniqueRecords = Object.values(latestRecordsMap);
+
+                    uniqueRecords.forEach(r => {
+                        totalSiswa += Number(r.jumlahSiswa); 
+                        totalLit += Number(r.tuntas_literasi || r.capaiLiterasi || 0); 
+                        totalNum += Number(r.tuntas_numerasi || r.capaiNumerasi || 0);
+                        
+                        totalKar += Number(r.karakter_teratur || 0) + Number(r.karakter_pantang_menyerah || 0) + Number(r.karakter_mandiri || 0);
+                        
+                        totalSec += Number(r.k_aman_1||0) + Number(r.k_aman_2||0) + Number(r.k_aman_3||0) || Number(r.keamanan||0);
+                        totalDiv += Number(r.k_bineka_1||0) + Number(r.k_bineka_2||0) + Number(r.k_bineka_3||0) || Number(r.kebinekaan||0);
+                        totalInc += Number(r.k_inklusif_1||0) + Number(r.k_inklusif_2||0) + Number(r.k_inklusif_3||0) || Number(r.inklusivitas||0);
+                        
+                        totalBel += Number(r.k_belajar_1||0) + Number(r.k_belajar_2||0) + Number(r.k_belajar_3||0);
+                        totalRef += Number(r.k_refleksi_1||0) + Number(r.k_refleksi_2||0) + Number(r.k_refleksi_3||0);
+                        totalPim += Number(r.k_pimpin_1||0) + Number(r.k_pimpin_2||0) + Number(r.k_pimpin_3||0);
+                    });
+
+                    return {
+                        lit: totalSiswa ? Math.round((totalLit / totalSiswa) * 100) : 0,
+                        num: totalSiswa ? Math.round((totalNum / totalSiswa) * 100) : 0,
+                        kar: totalSiswa ? Math.round((totalKar / (totalSiswa * 3)) * 100) : 0,
+                        sec: uniqueRecords.length ? (totalSec / uniqueRecords.length).toFixed(1) : 0, 
+                        div: uniqueRecords.length ? (totalDiv / uniqueRecords.length).toFixed(1) : 0, 
+                        inc: uniqueRecords.length ? (totalInc / uniqueRecords.length).toFixed(1) : 0,
+                        bel: uniqueRecords.length ? (totalBel / uniqueRecords.length).toFixed(1) : 0,
+                        ref: uniqueRecords.length ? (totalRef / uniqueRecords.length).toFixed(1) : 0,
+                        pim: uniqueRecords.length ? (totalPim / uniqueRecords.length).toFixed(1) : 0
+                    };
+                };
 
                 return {
-                    lit: totalSiswa ? ((totalLit / totalSiswa) * 100).toFixed(1) : 0,
-                    num: totalSiswa ? ((totalNum / totalSiswa) * 100).toFixed(1) : 0,
-                    kar: totalSiswa ? ((totalKar / (totalSiswa * 3)) * 100).toFixed(1) : 0,
-                    sec: uniqueRecords.length ? (totalSec / uniqueRecords.length).toFixed(1) : 0, 
-                    div: uniqueRecords.length ? (totalDiv / uniqueRecords.length).toFixed(1) : 0, 
-                    inc: uniqueRecords.length ? (totalInc / uniqueRecords.length).toFixed(1) : 0,
-                    bel: uniqueRecords.length ? (totalBel / uniqueRecords.length).toFixed(1) : 0,
-                    ref: uniqueRecords.length ? (totalRef / uniqueRecords.length).toFixed(1) : 0,
-                    pim: uniqueRecords.length ? (totalPim / uniqueRecords.length).toFixed(1) : 0
+                    ALL: calculateForJenjang(null),
+                    SD: calculateForJenjang('SD'),
+                    SMP: calculateForJenjang('SMP')
                 };
             }, [records]);
 
             const trendData = useMemo(() => {
                 const dataByTriwulan = {};
-                TRIWULAN_LIST.forEach(t => { dataByTriwulan[t] = { name: t, literasi: 0, numerasi: 0, totalSiswa: 0 }; });
-                records.forEach(r => {
-                if(dataByTriwulan[r.triwulan]) {
-                    dataByTriwulan[r.triwulan].literasi += Number(r.tuntas_literasi || r.capaiLiterasi || 0);
-                    dataByTriwulan[r.triwulan].numerasi += Number(r.tuntas_numerasi || r.capaiNumerasi || 0);
-                    dataByTriwulan[r.triwulan].totalSiswa += Number(r.jumlahSiswa);
-                }
+                TRIWULAN_LIST.forEach(t => { 
+                    dataByTriwulan[t] = { 
+                        name: t, 
+                        lit: 0, num: 0, siswa: 0,
+                        lit_SD: 0, num_SD: 0, siswa_SD: 0,
+                        lit_SMP: 0, num_SMP: 0, siswa_SMP: 0
+                    }; 
                 });
-                return TRIWULAN_LIST.map(t => ({
-                name: t,
-                "Capaian Literasi (%)": dataByTriwulan[t].totalSiswa ? Math.round((dataByTriwulan[t].literasi / dataByTriwulan[t].totalSiswa) * 100) : 0,
-                "Capaian Numerasi (%)": dataByTriwulan[t].totalSiswa ? Math.round((dataByTriwulan[t].numerasi / dataByTriwulan[t].totalSiswa) * 100) : 0,
-                })).filter(d => d["Capaian Literasi (%)"] > 0 || d["Capaian Numerasi (%)"] > 0);
+
+                records.forEach(r => {
+                    if(dataByTriwulan[r.triwulan]) {
+                        const j = r.jenjang === 'SMP' ? 'SMP' : 'SD';
+                        const lit = Number(r.tuntas_literasi || r.capaiLiterasi || 0);
+                        const num = Number(r.tuntas_numerasi || r.capaiNumerasi || 0);
+                        const s = Number(r.jumlahSiswa || 0);
+
+                        dataByTriwulan[r.triwulan][`lit_${j}`] += lit;
+                        dataByTriwulan[r.triwulan][`num_${j}`] += num;
+                        dataByTriwulan[r.triwulan][`siswa_${j}`] += s;
+                        
+                        dataByTriwulan[r.triwulan].lit += lit;
+                        dataByTriwulan[r.triwulan].num += num;
+                        dataByTriwulan[r.triwulan].siswa += s;
+                    }
+                });
+
+                return TRIWULAN_LIST.map(t => {
+                    const d = dataByTriwulan[t];
+                    return {
+                        name: t,
+                        "Capaian Literasi (%)": d.siswa ? Math.round((d.lit / d.siswa) * 100) : 0,
+                        "Capaian Numerasi (%)": d.siswa ? Math.round((d.num / d.siswa) * 100) : 0,
+                        "Lit. SD (%)": d.siswa_SD ? Math.round((d.lit_SD / d.siswa_SD) * 100) : 0,
+                        "Num. SD (%)": d.siswa_SD ? Math.round((d.num_SD / d.siswa_SD) * 100) : 0,
+                        "Lit. SMP (%)": d.siswa_SMP ? Math.round((d.lit_SMP / d.siswa_SMP) * 100) : 0,
+                        "Num. SMP (%)": d.siswa_SMP ? Math.round((d.num_SMP / d.siswa_SMP) * 100) : 0,
+                        hasData: d.siswa > 0
+                    };
+                }).filter(d => d.hasData);
             }, [records]);
 
             const mapData = useMemo(() => {
@@ -410,94 +447,186 @@
             }, [records, thresholds]);
 
             const isDinas = user?.role === 'dinas';
+            const isSekolah = user?.role === 'sekolah';
+
+            const renderCardValue = (key, isLitNum = false) => {
+                // Tampilan untuk Admin Sekolah (Satu Baris Saja)
+                if (isSekolah) {
+                    const s = stats.ALL;
+                    if (isLitNum) {
+                        return (
+                            <div className="flex items-center justify-between w-full text-base md:text-lg font-bold">
+                                <span className="text-blue-600">L: {s.lit}%</span>
+                                <span className="text-slate-300 font-light">|</span>
+                                <span className="text-indigo-600">N: {s.num}%</span>
+                            </div>
+                        );
+                    }
+                    const isPctOnly = key === 'kar';
+                    const valStr = s[key];
+                    const pct = Math.round((Number(valStr) / 3) * 100);
+                    return (
+                        <div className="text-base md:text-lg font-bold flex items-baseline justify-between w-full text-slate-700">
+                            {isPctOnly ? <span>{valStr}%</span> : <><span className="text-slate-700">{valStr}/3</span> <span className="text-[10px] md:text-xs text-slate-400">({pct}%)</span></>}
+                        </div>
+                    );
+                }
+
+                // Tampilan untuk Dinas dan Korwil (Dua Baris SD/SMP, Merah/Biru)
+                if (isLitNum) {
+                    return (
+                        <div className="flex flex-col w-full text-xs md:text-sm font-bold tracking-tight mt-1">
+                            <div className="flex justify-between items-center text-red-600 pb-1.5 mb-1.5 border-b border-slate-200 border-dashed">
+                                <span>SD</span>
+                                <span>L: {stats.SD.lit}% <span className="text-red-300 font-light mx-0.5">|</span> N: {stats.SD.num}%</span>
+                            </div>
+                            <div className="flex justify-between items-center text-blue-600">
+                                <span>SMP</span>
+                                <span>L: {stats.SMP.lit}% <span className="text-blue-300 font-light mx-0.5">|</span> N: {stats.SMP.num}%</span>
+                            </div>
+                        </div>
+                    );
+                }
+
+                const isPctOnly = key === 'kar';
+                const formatVal = (sObj) => {
+                    if (isPctOnly) return <span>{sObj[key]}%</span>;
+                    const valStr = sObj[key];
+                    const pct = Math.round((Number(valStr) / 3) * 100);
+                    return <>{valStr}/3 <span className="text-[10px] md:text-xs font-semibold opacity-75 ml-1">({pct}%)</span></>;
+                };
+
+                return (
+                    <div className="flex flex-col w-full text-xs md:text-sm font-bold tracking-tight mt-1">
+                        <div className="flex justify-between items-center text-red-600 pb-1.5 mb-1.5 border-b border-slate-200 border-dashed">
+                            <span>SD</span>
+                            <span className="flex items-center">{formatVal(stats.SD)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-blue-600">
+                            <span>SMP</span>
+                            <span className="flex items-center">{formatVal(stats.SMP)}</span>
+                        </div>
+                    </div>
+                );
+            };
 
             return (
                 <div className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3 md:gap-4 pt-2">
+                
+                {/* --- BANNER PANDUAN KHUSUS SEKOLAH --- */}
+                {isSekolah && (
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-5 md:p-6 rounded-xl shadow-md mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-slide-in">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/20 rounded-full flex-shrink-0">
+                                <i className="fas fa-book-open text-2xl text-white"></i>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold tracking-wide">Panduan Laporan MONEV</h3>
+                                <p className="text-xs md:text-sm text-blue-100 mt-1 leading-snug">Unduh dan pelajari buku panduan resmi sebelum melakukan pengisian data instrumen agar data yang diinput lebih akurat.</p>
+                            </div>
+                        </div>
+                        <a href={LINK_PANDUAN_PDF} target="_blank" className="w-full md:w-auto bg-white text-blue-700 px-6 py-3 rounded-lg font-bold text-sm shadow-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 whitespace-nowrap hover:shadow-lg flex-shrink-0">
+                            <i className="fas fa-download"></i> Unduh PDF Panduan
+                        </a>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                     <StatCard 
                         title="Literasi & Num." 
-                        value={<><span className="text-blue-600">{stats.lit}%</span> <span className="text-slate-300 font-light mx-1">|</span> <span className="text-indigo-600">{stats.num}%</span></>} 
-                        icon={<i className="fas fa-book-reader text-blue-500 md:text-xl"></i>} 
+                        value={renderCardValue('litnum', true)} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 text-xl"><i className="fas fa-book-reader"></i></div>} 
                         idx={1} 
                     />
-                    <StatCard title="Karakter Siswa" value={`${stats.kar}%`} icon={<i className="fas fa-star text-amber-400 md:text-xl"></i>} idx={2} />
-                    
+                    <StatCard 
+                        title="Karakter Siswa" 
+                        value={renderCardValue('kar')} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 text-xl"><i className="fas fa-star"></i></div>} 
+                        idx={2} 
+                    />
                     <StatCard 
                         title="Iklim Keamanan" 
-                        value={<>{stats.sec}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.sec)/3)*100)}%)</span></>} 
-                        icon={<i className="fas fa-shield-alt text-emerald-500 md:text-xl"></i>} 
+                        value={renderCardValue('sec')} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl"><i className="fas fa-shield-alt"></i></div>} 
                         idx={3} 
                     />
                     <StatCard 
                         title="Iklim Kebhinekaan" 
-                        value={<>{stats.div}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.div)/3)*100)}%)</span></>} 
-                        icon={<i className="fas fa-users text-amber-500 md:text-xl"></i>} 
+                        value={renderCardValue('div')} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 text-xl"><i className="fas fa-users"></i></div>} 
                         idx={4} 
                     />
                     <StatCard 
                         title="Iklim Inklusivitas" 
-                        value={<>{stats.inc}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.inc)/3)*100)}%)</span></>} 
-                        icon={<i className="fas fa-hands-helping text-rose-500 md:text-xl"></i>} 
+                        value={renderCardValue('inc')} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl"><i className="fas fa-hands-helping"></i></div>} 
                         idx={5} 
                     />
                     <StatCard 
                         title="Kualitas Pembelajaran" 
-                        value={<>{stats.bel}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.bel)/3)*100)}%)</span></>} 
-                        icon={<i className="fas fa-chalkboard-teacher text-cyan-500 md:text-xl"></i>} 
+                        value={renderCardValue('bel')} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center text-cyan-500 text-xl"><i className="fas fa-chalkboard-teacher"></i></div>} 
                         idx={6} 
                     />
                     <StatCard 
                         title="Refleksi Guru" 
-                        value={<>{stats.ref}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.ref)/3)*100)}%)</span></>} 
-                        icon={<i className="fas fa-lightbulb text-yellow-500 md:text-xl"></i>} 
+                        value={renderCardValue('ref')} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-yellow-50 flex items-center justify-center text-yellow-500 text-xl"><i className="fas fa-lightbulb"></i></div>} 
                         idx={7} 
                     />
                     <StatCard 
                         title="Kepemimpinan Instruksional" 
-                        value={<>{stats.pim}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.pim)/3)*100)}%)</span></>} 
-                        icon={<i className="fas fa-user-tie text-purple-500 md:text-xl"></i>} 
+                        value={renderCardValue('pim')} 
+                        icon={<div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500 text-xl"><i className="fas fa-user-tie"></i></div>} 
                         idx={8} 
                     />
                 </div>
 
                 <div className={`grid grid-cols-1 ${isDinas ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
-                    <div className={`${isDinas ? 'lg:col-span-2' : 'w-full'} bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm`}>
-                    <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2 text-sm md:text-base">
+                    <div className={`${isDinas ? 'lg:col-span-2' : 'w-full'} bg-white p-5 rounded-2xl border border-slate-100 shadow-sm`}>
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm md:text-base">
                         <i className="fas fa-chart-line text-blue-600"></i> 
                         Tren Belajar {isDinas ? 'Kabupaten' : user?.role === 'korwil' ? `Kec. ${user?.kecamatan}` : user?.sekolah}
                     </h3>
-                    <div className="h-60 md:h-72">
+                    <div className="h-64 md:h-72">
                         <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={trendData}>
+                        <LineChart data={trendData} margin={{ top: 5, right: 20, bottom: 5, left: -20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
-                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} domain={[0, 100]} />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} domain={[0, 100]} />
                             <RechartsTooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px'}} />
-                            <Legend iconType="circle" wrapperStyle={{fontSize: '12px'}} />
-                            <Line type="monotone" dataKey="Capaian Literasi (%)" stroke="#3b82f6" strokeWidth={3} dot={{r: 4}} />
-                            <Line type="monotone" dataKey="Capaian Numerasi (%)" stroke="#6366f1" strokeWidth={3} dot={{r: 4}} />
+                            <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '10px'}} />
+                            
+                            {/* Rendering Lines based on role without using Fragment to avoid Recharts parsing issues */}
+                            {isSekolah && <Line type="monotone" dataKey="Capaian Literasi (%)" stroke="#3b82f6" strokeWidth={3} dot={{r: 4}} key="lit-sek" />}
+                            {isSekolah && <Line type="monotone" dataKey="Capaian Numerasi (%)" stroke="#6366f1" strokeWidth={3} dot={{r: 4}} key="num-sek" />}
+                            
+                            {!isSekolah && <Line type="monotone" dataKey="Lit. SD (%)" stroke="#ef4444" strokeWidth={3} dot={{r: 4}} key="lit-sd" />}
+                            {!isSekolah && <Line type="monotone" dataKey="Num. SD (%)" stroke="#f87171" strokeWidth={3} strokeDasharray="5 5" dot={{r: 4}} key="num-sd" />}
+                            {!isSekolah && <Line type="monotone" dataKey="Lit. SMP (%)" stroke="#3b82f6" strokeWidth={3} dot={{r: 4}} key="lit-smp" />}
+                            {!isSekolah && <Line type="monotone" dataKey="Num. SMP (%)" stroke="#60a5fa" strokeWidth={3} strokeDasharray="5 5" dot={{r: 4}} key="num-smp" />}
                         </LineChart>
                         </ResponsiveContainer>
                     </div>
                     </div>
 
                     {isDinas && (
-                    <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2 text-sm md:text-base">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm md:text-base">
                         <i className="fas fa-map-marked-alt text-blue-600"></i> Sebaran Kinerja
                         </h3>
-                        <div className="grid grid-cols-2 gap-2 overflow-y-auto max-h-60 md:max-h-72 pr-1 no-scrollbar">
+                        <div className="grid grid-cols-2 gap-3 overflow-y-auto max-h-64 md:max-h-72 pr-2 no-scrollbar">
                         {mapData.map((k, i) => (
-                            <div key={i} className={`p-2 md:p-3 rounded-lg border text-[10px] md:text-sm flex flex-col items-center justify-center text-center ${k.color}`}>
+                            <div key={i} className={`p-3 rounded-xl border text-[10px] md:text-sm flex flex-col items-center justify-center text-center ${k.color} transition-all hover:shadow-sm`}>
                             <span className="font-semibold leading-tight">{k.nama}</span>
-                            <span className="mt-1 font-bold">{k.pct !== null ? `${k.pct.toFixed(0)}%` : 'Kosong'}</span>
+                            <span className="mt-1.5 font-bold">{k.pct !== null ? `${k.pct.toFixed(0)}%` : 'Kosong'}</span>
                             </div>
                         ))}
                         </div>
-                        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 md:gap-4 text-[10px] md:text-xs text-slate-500 border-t pt-3">
-                        <span className="flex items-center gap-1"><div className="w-2 h-2 md:w-3 md:h-3 bg-emerald-400 rounded-full"></div> &ge;{thresholds.pctTinggi}%</span>
-                        <span className="flex items-center gap-1"><div className="w-2 h-2 md:w-3 md:h-3 bg-amber-400 rounded-full"></div> {thresholds.pctSedang}-{thresholds.pctTinggi - 1}%</span>
-                        <span className="flex items-center gap-1"><div className="w-2 h-2 md:w-3 md:h-3 bg-red-400 rounded-full"></div> &lt;{thresholds.pctSedang}%</span>
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 md:gap-4 text-[10px] md:text-xs text-slate-500 border-t pt-4">
+                        <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-emerald-400 rounded-full"></div> &ge;{thresholds.pctTinggi}%</span>
+                        <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-amber-400 rounded-full"></div> {thresholds.pctSedang}-{thresholds.pctTinggi - 1}%</span>
+                        <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-red-400 rounded-full"></div> &lt;{thresholds.pctSedang}%</span>
                         </div>
                     </div>
                     )}
@@ -508,12 +637,14 @@
 
         function StatCard({ title, value, icon, idx = 1 }) {
             return (
-                <div className={`bg-gradient-to-br from-white to-slate-50 p-4 md:p-5 rounded-xl border border-slate-100 border-b-[4px] md:border-b-[5px] border-b-slate-300 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 animate-float-${idx} hover:-translate-y-1 md:hover:-translate-y-2 hover:shadow-md hover:border-b-blue-400 transition-all duration-300 cursor-default`}>
-                <div className="p-2 md:p-3 bg-white rounded-lg shadow-sm">{icon}</div>
-                <div>
-                    <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase tracking-wider">{title}</p>
-                    <p className="text-lg md:text-2xl font-extrabold text-slate-800 drop-shadow-sm">{value}</p>
-                </div>
+                <div className={`bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between animate-float-${idx} hover:-translate-y-1 hover:shadow-md transition-all duration-300 w-full min-h-[120px]`}>
+                    <div className="flex items-center gap-3 w-full mb-3">
+                        <div className="flex-shrink-0">{icon}</div>
+                        <p className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-wide leading-tight flex-1">{title}</p>
+                    </div>
+                    <div className="w-full flex-1 flex flex-col justify-end">
+                        {value}
+                    </div>
                 </div>
             );
         }
@@ -668,7 +799,7 @@
                             <div className="bg-white p-4 rounded-lg border border-blue-200 shadow-sm flex flex-col justify-between">
                                 <div>
                                     <div className="flex items-center gap-2 mb-2"><i className="fas fa-book-reader text-blue-500"></i><span className="font-bold text-sm text-slate-700">Target Literasi</span></div>
-                                    <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 min-h-[60px] italic">
+                                    <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 min-h-[60px] italic">
                                         "{MATERI_LITERASI[formData.kelas]?.[formData.triwulan] || 'Materi tidak ditemukan untuk kombinasi ini.'}"
                                     </p>
                                 </div>
@@ -681,7 +812,7 @@
                             <div className="bg-white p-4 rounded-lg border border-indigo-200 shadow-sm flex flex-col justify-between">
                                 <div>
                                     <div className="flex items-center gap-2 mb-2"><i className="fas fa-calculator text-indigo-500"></i><span className="font-bold text-sm text-slate-700">Target Numerasi</span></div>
-                                    <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 min-h-[60px] italic">
+                                    <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 min-h-[60px] italic">
                                         "{MATERI_NUMERASI[formData.kelas]?.[formData.triwulan] || 'Materi tidak ditemukan untuk kombinasi ini.'}"
                                     </p>
                                 </div>
@@ -697,22 +828,22 @@
                     <section>
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2 border-b pb-2"><i className="fas fa-star text-amber-400"></i> Target Karakter Siswa</h3>
                         <div className="space-y-4">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 md:p-4 bg-white border border-slate-200 rounded-lg">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                                 <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa menunjukkan kebiasaan belajar teratur (kehadiran, mengerjakan tugas, membawa perlengkapan, sungguh-sungguh)</p>
                                 <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
-                                    <input type="number" name="karakter_teratur" value={formData.karakter_teratur} onChange={handleChange} className="form-input text-sm" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                    <input type="number" name="karakter_teratur" value={formData.karakter_teratur} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 md:p-4 bg-white border border-slate-200 rounded-lg">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                                 <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa tidak mudah menyerah saat belajar dan menghadapi soal literasi dan numerasi</p>
                                 <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
-                                    <input type="number" name="karakter_pantang_menyerah" value={formData.karakter_pantang_menyerah} onChange={handleChange} className="form-input text-sm" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                    <input type="number" name="karakter_pantang_menyerah" value={formData.karakter_pantang_menyerah} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 md:p-4 bg-white border border-slate-200 rounded-lg">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                                 <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa mampu menyelesaikan tugas literasi dan numerasi secara mandiri</p>
                                 <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
-                                    <input type="number" name="karakter_mandiri" value={formData.karakter_mandiri} onChange={handleChange} className="form-input text-sm" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                    <input type="number" name="karakter_mandiri" value={formData.karakter_mandiri} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
                                 </div>
                             </div>
                         </div>
@@ -1120,7 +1251,7 @@
                 });
                 const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
                 const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `Laporan_SPPD_${new Date().getTime()}.csv`);
+                const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `Laporan_MONEV_${new Date().getTime()}.csv`);
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
             };
 
@@ -1141,7 +1272,7 @@
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             
-                            <div className="border border-amber-200 bg-amber-50/30 p-5 rounded-xl text-left md:col-span-2 shadow-sm">
+                            <div className="border border-amber-200 bg-amber-50/30 p-5 rounded-2xl text-left md:col-span-2 shadow-sm">
                                 <div className="flex justify-between items-center mb-1">
                                     <h3 className="font-bold text-base md:text-lg text-amber-900">Unduh Format Instrumen Kosong</h3>
                                 </div>
@@ -1161,7 +1292,7 @@
                                 </button>
                             </div>
 
-                            <div className="border border-emerald-200 bg-emerald-50/30 p-5 rounded-xl text-left md:col-span-2 shadow-sm">
+                            <div className="border border-emerald-200 bg-emerald-50/30 p-5 rounded-2xl text-left md:col-span-2 shadow-sm">
                                 <div className="flex justify-between items-center mb-1">
                                     <h3 className="font-bold text-base md:text-lg text-emerald-900">Cetak Detail Instrumen (Sesuai Format Docx)</h3>
                                 </div>
@@ -1195,7 +1326,7 @@
                                 </button>
                             </div>
 
-                            <div className="border border-blue-200 bg-blue-50/30 p-5 rounded-xl text-left md:col-span-2">
+                            <div className="border border-blue-200 bg-blue-50/30 p-5 rounded-2xl text-left md:col-span-2">
                                 <h3 className="font-bold text-base md:text-lg text-blue-900 mb-1">Laporan Excel (CSV) Seluruh Data</h3>
                                 <p className="text-xs text-slate-600 mb-4">Mencakup semua data jawaban per indikator, materi literasi numerasi, dan URL bukti dukung yang dikirimkan sekolah.</p>
                                 <div className="flex gap-2">
@@ -1209,7 +1340,7 @@
                     <div id="print-area" className="hidden print:block p-4 md:p-8 bg-white text-black font-serif">
                         {printType === 'rekap' ? (
                             <div className="text-center font-sans">
-                                <h1 className="text-2xl font-bold mb-4 border-b pb-4">Laporan Pemantauan Pendidikan Dasar<br/>Kabupaten Donggala</h1>
+                                <h1 className="text-2xl font-bold mb-4 border-b pb-4">Laporan MONEV Pendidikan Dasar<br/>Kabupaten Donggala</h1>
                                 <table className="w-full text-left border-collapse text-xs print-table">
                                 <thead><tr><th>Kecamatan</th><th>Sekolah</th><th>Siswa</th><th>Lit</th><th>Num</th></tr></thead>
                                 <tbody>{records.map(r => (<tr key={r.id}><td>{r.kecamatan}</td><td>{r.sekolah}</td><td className="text-center">{r.jumlahSiswa}</td><td className="text-center">{r.tuntas_literasi||r.capaiLiterasi||0}</td><td className="text-center">{r.tuntas_numerasi||r.capaiNumerasi||0}</td></tr>))}</tbody>
@@ -1411,7 +1542,7 @@
 
             return (
                 <div className="max-w-4xl mx-auto space-y-6">
-                <div className="bg-white p-5 md:p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-3 mb-4 md:mb-6 pb-4 border-b border-slate-100">
                     <div className="bg-blue-100 p-2 rounded-lg"><i className="fas fa-cog text-blue-600 text-xl"></i></div>
                     <div><h2 className="text-lg md:text-xl font-bold text-slate-800">Pengaturan Sistem</h2><p className="text-xs md:text-sm text-slate-500">Kelola pengguna & aturan evaluasi skor.</p></div>
@@ -1549,8 +1680,8 @@
                         <div className="relative z-10 bg-white p-2 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-[0_5px_15px_rgba(0,0,0,0.4)]">
                             <img src="https://i.ibb.co.com/5xhN0cm1/Logo-Donggala.png" alt="Logo Donggala" className="w-10 h-10 object-contain" />
                         </div>
-                        <h1 className="relative z-10 text-xl md:text-2xl font-extrabold text-white mb-1 drop-shadow-md tracking-wide">Portal SPPD</h1>
-                        <p className="relative z-10 text-blue-100 text-xs md:text-sm font-medium opacity-90">Sistem Pemantauan Pendidikan<br/>Kabupaten Donggala</p>
+                        <h1 className="relative z-10 text-xl md:text-2xl font-extrabold text-white mb-1 drop-shadow-md tracking-wide">Portal MONEV</h1>
+                        <p className="relative z-10 text-blue-100 text-xs md:text-sm font-medium opacity-90">Sistem Monitoring dan Evaluasi Pendidikan<br/>Kabupaten Donggala</p>
                     </div>
                     
                     <div className="overflow-y-auto no-scrollbar p-6">
