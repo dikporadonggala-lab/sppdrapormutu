@@ -63,7 +63,7 @@
         // =========================================================================
         // 2. MASUKKAN LINK PDF BUKU PANDUAN (DARI GOOGLE DRIVE ANDA) DI BAWAH INI
         // =========================================================================
-        const LINK_PANDUAN_PDF = "https://drive.google.com/file/d/1_3WcSmsfbIzkKTa9xe1_ABqUV_Wvpvq9/view?usp=sharing";
+        const LINK_PANDUAN_PDF = "https://drive.google.com/file/d/1_3WcSmsfbIzkKTa9xe1_ABqUV_Wvpvq9/view?usp=drive_link";
 
         // --- CONSTANTS ---
         const KECAMATAN_LIST = [
@@ -248,7 +248,7 @@
                     <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-slate-800 p-2 mb-3 rounded transition-colors">
                         <i className="fas fa-sign-out-alt"></i> Keluar Akun
                     </button>
-                    Versi 5.5 (Update Visual)
+                    Versi 6.1 (Tabel Lengkap 9 Metrik)
                     </div>
                 </aside>
 
@@ -973,20 +973,28 @@
             const calculateMetrics = (row) => {
                 const litRaw = Number(row.tuntas_literasi || row.capaiLiterasi || 0);
                 const numRaw = Number(row.tuntas_numerasi || row.capaiNumerasi || 0);
-                const litPct = Math.round((litRaw / Number(row.jumlahSiswa)) * 100);
-                const numPct = Math.round((numRaw / Number(row.jumlahSiswa)) * 100);
-                const avgPct = (litPct + numPct) / 2;
+                const litPct = Math.round((litRaw / Number(row.jumlahSiswa)) * 100) || 0;
+                const numPct = Math.round((numRaw / Number(row.jumlahSiswa)) * 100) || 0;
                 
+                const karRaw = Number(row.karakter_teratur || 0) + Number(row.karakter_pantang_menyerah || 0) + Number(row.karakter_mandiri || 0);
+                const karPct = Math.round((karRaw / (Number(row.jumlahSiswa) * 3)) * 100) || 0;
+
                 const secScore = Number(row.k_aman_1||0) + Number(row.k_aman_2||0) + Number(row.k_aman_3||0) || Number(row.keamanan||0);
                 const divScore = Number(row.k_bineka_1||0) + Number(row.k_bineka_2||0) + Number(row.k_bineka_3||0) || Number(row.kebinekaan||0);
                 const incScore = Number(row.k_inklusif_1||0) + Number(row.k_inklusif_2||0) + Number(row.k_inklusif_3||0) || Number(row.inklusivitas||0);
-                const avgIklim = (secScore + divScore + incScore) / 3;
+                
+                const belScore = Number(row.k_belajar_1||0) + Number(row.k_belajar_2||0) + Number(row.k_belajar_3||0);
+                const refScore = Number(row.k_refleksi_1||0) + Number(row.k_refleksi_2||0) + Number(row.k_refleksi_3||0);
+                const pimScore = Number(row.k_pimpin_1||0) + Number(row.k_pimpin_2||0) + Number(row.k_pimpin_3||0);
+
+                const avgPct = (litPct + numPct + karPct) / 3;
+                const avgIklim = (secScore + divScore + incScore + belScore + refScore + pimScore) / 6;
 
                 let kategori = '🔴', tindakLanjut = 'Perlu Intervensi Segera';
                 if (avgPct >= thresholds.pctTinggi && avgIklim >= thresholds.iklimTinggi) { kategori = '⭐⭐⭐'; tindakLanjut = 'Pertahankan Kinerja'; }
                 else if (avgPct >= thresholds.pctSedang || avgIklim >= thresholds.iklimSedang) { kategori = '⭐⭐'; tindakLanjut = 'Bimbingan Lanjutan'; }
                 
-                return { litPct, numPct, secScore, divScore, incScore, kategori, tindakLanjut, litRaw, numRaw };
+                return { litPct, numPct, karPct, secScore, divScore, incScore, belScore, refScore, pimScore, kategori, tindakLanjut, litRaw, numRaw, karRaw };
             };
 
             const toggleSchool = (sekolah) => {
@@ -1121,15 +1129,21 @@
 
                                             {expandedSchool === group.sekolah && (
                                                 <div className="border-t border-slate-100 bg-slate-50 p-0 overflow-x-auto no-scrollbar">
-                                                    <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[800px]">
+                                                    <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[1200px]">
                                                         <thead className="bg-slate-100 text-slate-600">
                                                             <tr>
                                                                 <th className="p-3 border-b font-semibold">Periode</th>
                                                                 <th className="p-3 border-b font-semibold">Kelas</th>
-                                                                <th className="p-3 border-b font-semibold text-center">Siswa</th>
-                                                                <th className="p-3 border-b font-semibold bg-blue-50/50">Literasi</th>
-                                                                <th className="p-3 border-b font-semibold bg-indigo-50/50">Numerasi</th>
-                                                                <th className="p-3 border-b font-semibold text-center" title="Aman/Bineka/Inklusif">Iklim (A/B/I)</th>
+                                                                <th className="p-3 border-b font-semibold text-center" title="Jumlah Siswa">Siswa</th>
+                                                                <th className="p-3 border-b font-semibold bg-blue-50/50 text-center">Literasi</th>
+                                                                <th className="p-3 border-b font-semibold bg-indigo-50/50 text-center">Numerasi</th>
+                                                                <th className="p-3 border-b font-semibold bg-amber-50/50 text-center">Karakter</th>
+                                                                <th className="p-3 border-b font-semibold text-center">Keamanan</th>
+                                                                <th className="p-3 border-b font-semibold text-center">Kebhinekaan</th>
+                                                                <th className="p-3 border-b font-semibold text-center">Inklusivitas</th>
+                                                                <th className="p-3 border-b font-semibold text-center">Pembelajaran</th>
+                                                                <th className="p-3 border-b font-semibold text-center">Refleksi</th>
+                                                                <th className="p-3 border-b font-semibold text-center">Kepemimpinan</th>
                                                                 <th className="p-3 border-b font-semibold">Tautan Bukti</th>
                                                                 <th className="p-3 border-b font-semibold text-center">Hapus</th>
                                                             </tr>
@@ -1143,17 +1157,29 @@
                                                                             {row.triwulan}<br/>
                                                                             <span className="text-[9px] text-slate-400">{row.tahunAjaran}</span>
                                                                         </td>
-                                                                        <td className="p-3 font-semibold text-slate-800">{row.kelas} <span className="font-normal text-slate-500">Ruang {row.rombel}</span></td>
+                                                                        <td className="p-3 font-semibold text-slate-800">{row.kelas} <span className="font-normal text-slate-500"><br/>Ruang {row.rombel}</span></td>
                                                                         <td className="p-3 text-center font-bold text-slate-700">{row.jumlahSiswa}</td>
-                                                                        <td className="p-3 bg-blue-50/20"><div className="font-semibold text-blue-800">{metrics.litRaw} / {row.jumlahSiswa}</div><div className="text-[9px] md:text-[10px] bg-blue-100 inline-block px-1.5 rounded text-blue-700">{metrics.litPct}%</div></td>
-                                                                        <td className="p-3 bg-indigo-50/20"><div className="font-semibold text-indigo-800">{metrics.numRaw} / {row.jumlahSiswa}</div><div className="text-[9px] md:text-[10px] bg-indigo-100 inline-block px-1.5 rounded text-indigo-700">{metrics.numPct}%</div></td>
-                                                                        <td className="p-3 text-center">
-                                                                            <div className="flex justify-center gap-1">
-                                                                                <ScoreBadge score={metrics.secScore} max={3} />
-                                                                                <ScoreBadge score={metrics.divScore} max={3} />
-                                                                                <ScoreBadge score={metrics.incScore} max={3} />
-                                                                            </div>
+                                                                        
+                                                                        <td className="p-2 text-center bg-blue-50/20">
+                                                                            <div className="font-semibold text-blue-800">{metrics.litRaw}/{row.jumlahSiswa}</div>
+                                                                            <div className="text-[9px] md:text-[10px] bg-blue-100 inline-block px-1.5 rounded text-blue-700">{metrics.litPct}%</div>
                                                                         </td>
+                                                                        <td className="p-2 text-center bg-indigo-50/20">
+                                                                            <div className="font-semibold text-indigo-800">{metrics.numRaw}/{row.jumlahSiswa}</div>
+                                                                            <div className="text-[9px] md:text-[10px] bg-indigo-100 inline-block px-1.5 rounded text-indigo-700">{metrics.numPct}%</div>
+                                                                        </td>
+                                                                        <td className="p-2 text-center bg-amber-50/20">
+                                                                            <div className="font-semibold text-amber-800">{metrics.karRaw}/{row.jumlahSiswa * 3}</div>
+                                                                            <div className="text-[9px] md:text-[10px] bg-amber-100 inline-block px-1.5 rounded text-amber-700">{metrics.karPct}%</div>
+                                                                        </td>
+                                                                        
+                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.secScore} max={3} /></td>
+                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.divScore} max={3} /></td>
+                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.incScore} max={3} /></td>
+                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.belScore} max={3} /></td>
+                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.refScore} max={3} /></td>
+                                                                        <td className="p-2 text-center"><ScoreBadge score={metrics.pimScore} max={3} /></td>
+                                                                        
                                                                         <td className="p-3">
                                                                             {row.tautan_bukti ? (
                                                                                 <a href={row.tautan_bukti} target="_blank" className="text-blue-600 hover:underline flex items-center gap-1"><i className="fas fa-link"></i> Buka Link</a>
