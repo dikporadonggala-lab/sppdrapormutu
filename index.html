@@ -24,23 +24,27 @@
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 
     <style>
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* Hide scrollbar for bottom nav area */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
         @media print {
-            body * { visibility: hidden; }
+            body * { visibility: hidden; background: white; margin: 0; padding: 0; }
             aside, header, nav.md\:hidden { display: none !important; }
             .flex-1 { overflow: visible !important; padding-bottom: 0 !important; }
             #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+            .print\:break-after-page { page-break-after: always; break-after: page; }
+            
+            /* Tweak untuk tabel instrumen agar rapi di PDF */
+            .print-table th, .print-table td { border: 1px solid #000; padding: 6px; }
+            .print-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
         }
+        .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 antialiased overflow-hidden">
@@ -54,7 +58,7 @@
         // =========================================================================
         // MASUKKAN LINK GOOGLE APPS SCRIPT ANDA DI BAWAH INI
         // =========================================================================
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfxgrE_GbRaIxwVegLMrFn2PRzscUdcriMMYJhio2K6f-Fk300EWzyQCVHz_C-dgdx/exec"; 
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHbZmUBOscyeBbCS7TlMh6WRWa1gNEITCQo2DdJv6fAguqFcY7H4-JnvyDP87oKfEP/exec"; 
 
         // --- CONSTANTS ---
         const KECAMATAN_LIST = [
@@ -66,38 +70,54 @@
         const TRIWULAN_LIST = ["Triwulan 1", "Triwulan 2", "Triwulan 3", "Triwulan 4"];
         const KELAS_LIST = ["Kelas 1", "Kelas 2", "Kelas 3", "Kelas 4", "Kelas 5", "Kelas 6", "Kelas 7", "Kelas 8", "Kelas 9"];
 
-        const MOCK_NPSN_DB = {
-            "10101234": { sekolah: "SDN 1 Banawa", kecamatan: "Banawa" },
-            "10105678": { sekolah: "SMPN 2 Sirenja", kecamatan: "Sirenja" },
-            "10109012": { sekolah: "SDN 3 Pinembani", kecamatan: "Pinembani" }
+        const MATERI_LITERASI = {
+            "Kelas 1": { "Triwulan 1": "Mengenal huruf, bunyi huruf, dan suku kata.", "Triwulan 2": "Membaca kata dan kalimat sederhana (3–5 kata).", "Triwulan 3": "Memahami isi teks sangat pendek (2–3 kalimat).", "Triwulan 4": "Menjawab pertanyaan sederhana tentang teks dan menceritakan kembali isi bacaan secara lisan." },
+            "Kelas 2": { "Triwulan 1": "Membaca teks pendek 1 paragraf dengan lancar.", "Triwulan 2": "Menemukan informasi dasar (siapa, apa, di mana).", "Triwulan 3": "Menceritakan kembali isi teks secara sederhana.", "Triwulan 4": "Menulis kalimat sederhana dengan tanda baca dasar." },
+            "Kelas 3": { "Triwulan 1": "Mengidentifikasi ide pokok paragraf.", "Triwulan 2": "Menemukan informasi penting dalam teks.", "Triwulan 3": "Membandingkan dua informasi sederhana.", "Triwulan 4": "Menulis paragraf pendek runtut." },
+            "Kelas 4": { "Triwulan 1": "Menemukan informasi penting dalam teks informatif.", "Triwulan 2": "Menjelaskan hubungan antar informasi dalam teks.", "Triwulan 3": "Menyimpulkan isi teks.", "Triwulan 4": "Menafsirkan informasi tersirat." },
+            "Kelas 5": { "Triwulan 1": "Mengidentifikasi hubungan sebab–akibat dalam teks.", "Triwulan 2": "Membandingkan informasi dari dua teks.", "Triwulan 3": "Menganalisis isi teks informatif.", "Triwulan 4": "Mengevaluasi isi teks sederhana." },
+            "Kelas 6": { "Triwulan 1": "Menemukan ide utama dan informasi penting.", "Triwulan 2": "Menyimpulkan isi teks.", "Triwulan 3": "Mengintegrasikan informasi dari dua teks.", "Triwulan 4": "Mengevaluasi isi teks dengan alasan logis." },
+            "Kelas 7": { "Triwulan 1": "Menemukan gagasan utama dan informasi penting teks.", "Triwulan 2": "Menafsirkan informasi tersirat dalam teks.", "Triwulan 3": "Menganalisis struktur dan isi teks.", "Triwulan 4": "Membandingkan informasi dari dua teks." },
+            "Kelas 8": { "Triwulan 1": "Mengidentifikasi argumen dalam teks.", "Triwulan 2": "Menilai keakuratan informasi dalam teks.", "Triwulan 3": "Menyimpulkan isi teks argumentative.", "Triwulan 4": "Mengintegrasikan informasi dari beberapa teks." },
+            "Kelas 9": { "Triwulan 1": "Menemukan ide utama dan argumen dalam teks kompleks.", "Triwulan 2": "Mengevaluasi kredibilitas sumber informasi.", "Triwulan 3": "Mengintegrasikan informasi dari berbagai teks.", "Triwulan 4": "Menyusun kesimpulan argumentative." }
         };
 
-        const INITIAL_DATA = [
-            { id: 1, sekolah: "SDN 1 Banawa", kecamatan: "Banawa", jenjang: "SD", kelas: "Kelas 4", rombel: "A", triwulan: "Triwulan 1", jumlahSiswa: 30, capaiLiterasi: 25, capaiNumerasi: 20, keamanan: 4, kebinekaan: 5, inklusivitas: 4, catatan: "Siswa mulai aktif membaca di perpustakaan." },
-            { id: 2, sekolah: "SMPN 2 Sirenja", kecamatan: "Sirenja", jenjang: "SMP", kelas: "Kelas 7", rombel: "B", triwulan: "Triwulan 1", jumlahSiswa: 32, capaiLiterasi: 30, capaiNumerasi: 28, keamanan: 5, kebinekaan: 4, inklusivitas: 5, catatan: "Perlu tambahan buku pengayaan numerasi." },
-        ];
+        const MATERI_NUMERASI = {
+            "Kelas 1": { "Triwulan 1": "Mengenal bilangan sampai 100.", "Triwulan 2": "Membandingkan dan mengurutkan bilangan.", "Triwulan 3": "Melakukan penjumlahan dan pengurangan sederhana sampai 20.", "Triwulan 4": "Memahami konsep lebih besar dan lebih kecil." },
+            "Kelas 2": { "Triwulan 1": "Penjumlahan hingga 100.", "Triwulan 2": "Pengurangan hingga 100.", "Triwulan 3": "Perkalian dasar (2,3,4,5).", "Triwulan 4": "Memecahkan soal cerita satu langkah." },
+            "Kelas 3": { "Triwulan 1": "Perkalian dasar (6,7,8,9).", "Triwulan 2": "Pembagian dasar.", "Triwulan 3": "Memahami pecahan sederhana (½, ⅓, ¼).", "Triwulan 4": "Menyelesaikan soal cerita dua langkah." },
+            "Kelas 4": { "Triwulan 1": "Menggunakan operasi campuran bilangan.", "Triwulan 2": "Menggunakan pecahan senilai.", "Triwulan 3": "Menafsirkan data pada tabel/grafik.", "Triwulan 4": "Menyelesaikan masalah kontekstual dua langkah." },
+            "Kelas 5": { "Triwulan 1": "Menggunakan operasi pecahan.", "Triwulan 2": "Menggunakan desimal.", "Triwulan 3": "Menafsirkan grafik.", "Triwulan 4": "Menyelesaikan masalah kontekstual multi langkah." },
+            "Kelas 6": { "Triwulan 1": "Operasi pecahan campuran.", "Triwulan 2": "Menggunakan perbandingan.", "Triwulan 3": "Menafsirkan data tabel/grafik.", "Triwulan 4": "Masalah kontekstual kompleks." },
+            "Kelas 7": { "Triwulan 1": "Operasi bilangan bulat dalam berbagai situasi.", "Triwulan 2": "Operasi pecahan dalam masalah kontekstual.", "Triwulan 3": "Persamaan linear satu variabel.", "Triwulan 4": "Menafsirkan data pada grafik." },
+            "Kelas 8": { "Triwulan 1": "Memahami relasi dan fungsi.", "Triwulan 2": "Menyelesaikan SPLDV sederhana.", "Triwulan 3": "Menafsirkan data statistik sederhana.", "Triwulan 4": "Masalah kontekstual multi langkah." },
+            "Kelas 9": { "Triwulan 1": "Persamaan kuadrat sederhana.", "Triwulan 2": "Konsep peluang sederhana.", "Triwulan 3": "Menafsirkan data statistika.", "Triwulan 4": "Masalah kontekstual kompleks." }
+        };
 
-        // --- TAMBAHAN DEFAULT PENGATURAN SKOR ---
-        const DEFAULT_THRESHOLDS = { pctTinggi: 80, pctSedang: 60, iklimTinggi: 4, iklimSedang: 3 };
+        const MOCK_NPSN_DB = {
+            "10101234": { sekolah: "SDN 1 Banawa", kecamatan: "Banawa" },
+            "10105678": { sekolah: "SMPN 2 Sirenja", kecamatan: "Sirenja" }
+        };
+
+        const DEFAULT_THRESHOLDS = { pctTinggi: 80, pctSedang: 60, iklimTinggi: 3, iklimSedang: 2 };
 
         function App() {
             const [activeTab, setActiveTab] = useState('dashboard');
-            const [records, setRecords] = useState(INITIAL_DATA);
-            const [npsnDB, setNpsnDB] = useState(MOCK_NPSN_DB);
+            const [records, setRecords] = useState([]);
+            const [npsnDB, setNpsnDB] = useState({});
             const [usersDB, setUsersDB] = useState([]);
             const [toast, setToast] = useState(null);
             const [user, setUser] = useState(null); 
             const [isLoading, setIsLoading] = useState(false);
 
-            // State untuk batas skor yang disimpan di memori browser pengguna
             const [thresholds, setThresholds] = useState(() => {
-                const saved = localStorage.getItem('sppd_thresholds');
+                const saved = localStorage.getItem('sppd_thresholds_v2');
                 return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
             });
 
             const handleSaveThresholds = (newT) => {
                 setThresholds(newT);
-                localStorage.setItem('sppd_thresholds', JSON.stringify(newT));
+                localStorage.setItem('sppd_thresholds_v2', JSON.stringify(newT));
             };
 
             useEffect(() => {
@@ -106,20 +126,18 @@
                 const fetchSheetData = async () => {
                     setIsLoading(true);
                     try {
-                        const response = await fetch(GOOGLE_SCRIPT_URL);
+                        const fetchUrl = GOOGLE_SCRIPT_URL + (GOOGLE_SCRIPT_URL.includes('?') ? '&' : '?') + 'nocache=' + new Date().getTime();
+                        
+                        const response = await fetch(fetchUrl);
                         const result = await response.json();
                         
                         if (result.status === 'success') {
                             if (result.data.records && result.data.records.length > 0) setRecords(result.data.records);
                             if (result.data.npsn && Object.keys(result.data.npsn).length > 0) setNpsnDB(result.data.npsn);
-                            
-                            // MENGATASI MASALAH SPASI PADA NAMA KOLOM DI GOOGLE SHEETS
                             if (result.data.users && result.data.users.length > 0) {
                                 const cleanUsers = result.data.users.map(u => {
                                     let obj = {};
-                                    for (let key in u) {
-                                        obj[key.trim().toLowerCase()] = u[key];
-                                    }
+                                    for (let key in u) obj[key.trim().toLowerCase()] = u[key];
                                     return obj;
                                 });
                                 setUsersDB(cleanUsers);
@@ -145,20 +163,18 @@
                 setActiveTab('monitoring');
 
                 if (GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL !== "MASUKKAN_LINK_APPS_SCRIPT_ANDA_DI_SINI") {
-                    showToast('Menyimpan ke server...', 'info');
+                    showToast('Mengirim data ke server, mohon tunggu...', 'info');
                     try {
                         await fetch(GOOGLE_SCRIPT_URL, {
-                            method: 'POST',
-                            mode: 'no-cors', 
-                            headers: { 'Content-Type': 'application/json' },
+                            method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action: 'add_record', data: recordWithId })
                         });
                         showToast('Data berhasil disimpan ke Sheet!');
                     } catch (error) {
-                        showToast('Gagal mengirim ke server. Periksa koneksi.', 'error');
+                        showToast('Gagal mengirim ke server.', 'error');
                     }
                 } else {
-                    showToast('Disimpan (Mode Offline / Lokal)');
+                    showToast('Disimpan (Mode Lokal)');
                 }
             };
 
@@ -203,7 +219,6 @@
                     .animate-float-5 { animation: float 3.6s ease-in-out infinite 0.8s; }
                 `}</style>
 
-                {/* Sidebar (Sembunyi di HP, Tampil di Desktop) */}
                 <aside className="hidden md:flex w-64 bg-slate-900 text-slate-200 flex-col shadow-xl z-20">
                     <div className="p-5 flex items-center gap-3 border-b border-slate-700">
                     <div className="bg-white p-1 rounded-lg">
@@ -233,11 +248,10 @@
                     <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-slate-800 p-2 mb-3 rounded transition-colors">
                         <i className="fas fa-sign-out-alt"></i> Keluar Akun
                     </button>
-                    Versi 2.6
+                    Versi 4.4 (Update Kartu)
                     </div>
                 </aside>
 
-                {/* Konten Utama */}
                 <main className="flex-1 flex flex-col h-screen overflow-hidden pb-16 md:pb-0">
                     <header className="bg-white h-16 shadow-sm flex items-center px-4 md:px-6 justify-between z-10 flex-shrink-0">
                     <h2 className="text-lg md:text-xl font-semibold text-slate-800 capitalize truncate pr-2">
@@ -261,7 +275,6 @@
                     {activeTab === 'laporan' && <Laporan records={accessibleRecords} user={user} />}
                     {activeTab === 'pengguna' && <KelolaPengguna showToast={showToast} GOOGLE_SCRIPT_URL={GOOGLE_SCRIPT_URL} thresholds={thresholds} onSaveThresholds={handleSaveThresholds} />}
 
-                    {/* Toast */}
                     {toast && (
                         <div className={`fixed top-20 md:bottom-6 md:top-auto right-4 md:right-6 px-4 py-3 rounded-lg shadow-lg text-white font-medium flex items-center gap-2 transition-all z-50 animate-slide-in ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'info' ? 'bg-blue-500' : 'bg-emerald-600'}`}>
                         {toast.type === 'success' ? <i className="fas fa-check-circle"></i> : <i className="fas fa-exclamation-triangle"></i>}
@@ -271,7 +284,6 @@
                     </div>
                 </main>
 
-                {/* Navigasi Bawah (Tampil HANYA di HP) */}
                 <nav className="md:hidden fixed bottom-0 w-full bg-white border-t border-slate-200 flex justify-around items-center h-16 z-50 px-1 safe-area-pb shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
                     <BottomNavItem icon={<i className="fas fa-th-large"></i>} label="Beranda" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
                     {user.role === 'sekolah' && (
@@ -288,7 +300,6 @@
             );
         }
 
-        // --- SUB-COMPONENTS ---
         function SidebarItem({ icon, label, active, onClick }) {
             return (
                 <button onClick={onClick} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left w-full ${active ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-300'}`}>
@@ -309,16 +320,46 @@
 
         function Dashboard({ records, user, thresholds }) {
             const stats = useMemo(() => {
-                if (records.length === 0) return { lit: 0, num: 0, sec: 0, div: 0, inc: 0 };
-                let totalSiswa = 0, totalLit = 0, totalNum = 0, totalSec = 0, totalDiv = 0, totalInc = 0;
+                if (records.length === 0) return { lit: 0, num: 0, kar: 0, sec: 0, div: 0, inc: 0, bel: 0, ref: 0, pim: 0 };
+                
+                const latestRecordsMap = {};
                 records.forEach(r => {
-                totalSiswa += Number(r.jumlahSiswa); totalLit += Number(r.capaiLiterasi); totalNum += Number(r.capaiNumerasi);
-                totalSec += Number(r.keamanan); totalDiv += Number(r.kebinekaan); totalInc += Number(r.inklusivitas);
+                    const key = `${r.sekolah}-${r.kelas}-${r.rombel}`.toLowerCase().replace(/\s+/g, '');
+                    if (!latestRecordsMap[key] || r.triwulan > latestRecordsMap[key].triwulan) {
+                        latestRecordsMap[key] = r;
+                    }
                 });
+
+                let totalSiswa = 0, totalLit = 0, totalNum = 0, totalKar = 0;
+                let totalSec = 0, totalDiv = 0, totalInc = 0, totalBel = 0, totalRef = 0, totalPim = 0;
+                const uniqueRecords = Object.values(latestRecordsMap);
+
+                uniqueRecords.forEach(r => {
+                    totalSiswa += Number(r.jumlahSiswa); 
+                    totalLit += Number(r.tuntas_literasi || r.capaiLiterasi || 0); 
+                    totalNum += Number(r.tuntas_numerasi || r.capaiNumerasi || 0);
+                    
+                    totalKar += Number(r.karakter_teratur || 0) + Number(r.karakter_pantang_menyerah || 0) + Number(r.karakter_mandiri || 0);
+                    
+                    totalSec += Number(r.k_aman_1||0) + Number(r.k_aman_2||0) + Number(r.k_aman_3||0) || Number(r.keamanan||0);
+                    totalDiv += Number(r.k_bineka_1||0) + Number(r.k_bineka_2||0) + Number(r.k_bineka_3||0) || Number(r.kebinekaan||0);
+                    totalInc += Number(r.k_inklusif_1||0) + Number(r.k_inklusif_2||0) + Number(r.k_inklusif_3||0) || Number(r.inklusivitas||0);
+                    
+                    totalBel += Number(r.k_belajar_1||0) + Number(r.k_belajar_2||0) + Number(r.k_belajar_3||0);
+                    totalRef += Number(r.k_refleksi_1||0) + Number(r.k_refleksi_2||0) + Number(r.k_refleksi_3||0);
+                    totalPim += Number(r.k_pimpin_1||0) + Number(r.k_pimpin_2||0) + Number(r.k_pimpin_3||0);
+                });
+
                 return {
-                lit: totalSiswa ? ((totalLit / totalSiswa) * 100).toFixed(1) : 0,
-                num: totalSiswa ? ((totalNum / totalSiswa) * 100).toFixed(1) : 0,
-                sec: (totalSec / records.length).toFixed(1), div: (totalDiv / records.length).toFixed(1), inc: (totalInc / records.length).toFixed(1)
+                    lit: totalSiswa ? ((totalLit / totalSiswa) * 100).toFixed(1) : 0,
+                    num: totalSiswa ? ((totalNum / totalSiswa) * 100).toFixed(1) : 0,
+                    kar: totalSiswa ? ((totalKar / (totalSiswa * 3)) * 100).toFixed(1) : 0,
+                    sec: uniqueRecords.length ? (totalSec / uniqueRecords.length).toFixed(1) : 0, 
+                    div: uniqueRecords.length ? (totalDiv / uniqueRecords.length).toFixed(1) : 0, 
+                    inc: uniqueRecords.length ? (totalInc / uniqueRecords.length).toFixed(1) : 0,
+                    bel: uniqueRecords.length ? (totalBel / uniqueRecords.length).toFixed(1) : 0,
+                    ref: uniqueRecords.length ? (totalRef / uniqueRecords.length).toFixed(1) : 0,
+                    pim: uniqueRecords.length ? (totalPim / uniqueRecords.length).toFixed(1) : 0
                 };
             }, [records]);
 
@@ -327,8 +368,8 @@
                 TRIWULAN_LIST.forEach(t => { dataByTriwulan[t] = { name: t, literasi: 0, numerasi: 0, totalSiswa: 0 }; });
                 records.forEach(r => {
                 if(dataByTriwulan[r.triwulan]) {
-                    dataByTriwulan[r.triwulan].literasi += Number(r.capaiLiterasi);
-                    dataByTriwulan[r.triwulan].numerasi += Number(r.capaiNumerasi);
+                    dataByTriwulan[r.triwulan].literasi += Number(r.tuntas_literasi || r.capaiLiterasi || 0);
+                    dataByTriwulan[r.triwulan].numerasi += Number(r.tuntas_numerasi || r.capaiNumerasi || 0);
                     dataByTriwulan[r.triwulan].totalSiswa += Number(r.jumlahSiswa);
                 }
                 });
@@ -342,7 +383,20 @@
             const mapData = useMemo(() => {
                 const data = {};
                 KECAMATAN_LIST.forEach(k => { data[k] = { siswa: 0, target: 0 }; });
-                records.forEach(r => { data[r.kecamatan].siswa += Number(r.jumlahSiswa); data[r.kecamatan].target += (Number(r.capaiLiterasi) + Number(r.capaiNumerasi)) / 2; });
+
+                const latestRecordsMap = {};
+                records.forEach(r => {
+                    const key = `${r.sekolah}-${r.kelas}-${r.rombel}`.toLowerCase().replace(/\s+/g, '');
+                    if (!latestRecordsMap[key] || r.triwulan > latestRecordsMap[key].triwulan) {
+                        latestRecordsMap[key] = r;
+                    }
+                });
+
+                Object.values(latestRecordsMap).forEach(r => { 
+                    data[r.kecamatan].siswa += Number(r.jumlahSiswa); 
+                    data[r.kecamatan].target += (Number(r.tuntas_literasi || r.capaiLiterasi || 0) + Number(r.tuntas_numerasi || r.capaiNumerasi || 0)) / 2; 
+                });
+
                 return KECAMATAN_LIST.map(k => {
                 const pct = data[k].siswa ? (data[k].target / data[k].siswa) * 100 : null;
                 let color = 'bg-slate-100 text-slate-400 border-slate-200'; 
@@ -359,14 +413,51 @@
 
             return (
                 <div className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 pt-2">
-                    <StatCard title="Target Literasi" value={`${stats.lit}%`} icon={<i className="fas fa-book-reader text-blue-500 md:text-xl"></i>} idx={1} />
-                    <StatCard title="Target Numerasi" value={`${stats.num}%`} icon={<i className="fas fa-calculator text-indigo-500 md:text-xl"></i>} idx={2} />
-                    <StatCard title="Skor Keamanan" value={`${stats.sec}/5`} icon={<i className="fas fa-shield-alt text-emerald-500 md:text-xl"></i>} idx={3} />
-                    <StatCard title="Skor Kebinekaan" value={`${stats.div}/5`} icon={<i className="fas fa-users text-amber-500 md:text-xl"></i>} idx={4} />
-                    <div className="col-span-2 md:col-span-1">
-                        <StatCard title="Skor Inklusivitas" value={`${stats.inc}/5`} icon={<i className="fas fa-hands-helping text-rose-500 md:text-xl"></i>} idx={5} />
-                    </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3 md:gap-4 pt-2">
+                    <StatCard 
+                        title="Literasi & Num." 
+                        value={<><span className="text-blue-600">{stats.lit}%</span> <span className="text-slate-300 font-light mx-1">|</span> <span className="text-indigo-600">{stats.num}%</span></>} 
+                        icon={<i className="fas fa-book-reader text-blue-500 md:text-xl"></i>} 
+                        idx={1} 
+                    />
+                    <StatCard title="Karakter Siswa" value={`${stats.kar}%`} icon={<i className="fas fa-star text-amber-400 md:text-xl"></i>} idx={2} />
+                    
+                    <StatCard 
+                        title="Iklim Keamanan" 
+                        value={<>{stats.sec}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.sec)/3)*100)}%)</span></>} 
+                        icon={<i className="fas fa-shield-alt text-emerald-500 md:text-xl"></i>} 
+                        idx={3} 
+                    />
+                    <StatCard 
+                        title="Iklim Kebhinekaan" 
+                        value={<>{stats.div}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.div)/3)*100)}%)</span></>} 
+                        icon={<i className="fas fa-users text-amber-500 md:text-xl"></i>} 
+                        idx={4} 
+                    />
+                    <StatCard 
+                        title="Iklim Inklusivitas" 
+                        value={<>{stats.inc}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.inc)/3)*100)}%)</span></>} 
+                        icon={<i className="fas fa-hands-helping text-rose-500 md:text-xl"></i>} 
+                        idx={5} 
+                    />
+                    <StatCard 
+                        title="Kualitas Pembelajaran" 
+                        value={<>{stats.bel}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.bel)/3)*100)}%)</span></>} 
+                        icon={<i className="fas fa-chalkboard-teacher text-cyan-500 md:text-xl"></i>} 
+                        idx={6} 
+                    />
+                    <StatCard 
+                        title="Refleksi Guru" 
+                        value={<>{stats.ref}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.ref)/3)*100)}%)</span></>} 
+                        icon={<i className="fas fa-lightbulb text-yellow-500 md:text-xl"></i>} 
+                        idx={7} 
+                    />
+                    <StatCard 
+                        title="Kepemimpinan Instruksional" 
+                        value={<>{stats.pim}/3 <span className="text-[11px] md:text-sm text-slate-400 font-bold ml-1">({Math.round((Number(stats.pim)/3)*100)}%)</span></>} 
+                        icon={<i className="fas fa-user-tie text-purple-500 md:text-xl"></i>} 
+                        idx={8} 
+                    />
                 </div>
 
                 <div className={`grid grid-cols-1 ${isDinas ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
@@ -420,7 +511,7 @@
                 <div className={`bg-gradient-to-br from-white to-slate-50 p-4 md:p-5 rounded-xl border border-slate-100 border-b-[4px] md:border-b-[5px] border-b-slate-300 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 animate-float-${idx} hover:-translate-y-1 md:hover:-translate-y-2 hover:shadow-md hover:border-b-blue-400 transition-all duration-300 cursor-default`}>
                 <div className="p-2 md:p-3 bg-white rounded-lg shadow-sm">{icon}</div>
                 <div>
-                    <p className="text-[9px] md:text-[11px] text-slate-500 font-bold uppercase tracking-wider">{title}</p>
+                    <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase tracking-wider">{title}</p>
                     <p className="text-lg md:text-2xl font-extrabold text-slate-800 drop-shadow-sm">{value}</p>
                 </div>
                 </div>
@@ -428,74 +519,227 @@
         }
 
         function InputData({ onSubmit, user }) {
+            const currentYear = new Date().getFullYear();
+            const defaultTahunAjaran = `${currentYear}/${currentYear+1}`;
+
             const [formData, setFormData] = useState({
-                sekolah: user?.sekolah || '', kecamatan: user?.kecamatan || KECAMATAN_LIST[0], 
-                jenjang: JENJANG_LIST[0], kelas: KELAS_LIST[0], rombel: '', triwulan: TRIWULAN_LIST[0],
-                jumlahSiswa: '', capaiLiterasi: '', capaiNumerasi: '', keamanan: 3, kebinekaan: 3, inklusivitas: 3, catatan: ''
+                tahunAjaran: defaultTahunAjaran, sekolah: user?.sekolah || '', kecamatan: user?.kecamatan || KECAMATAN_LIST[0], 
+                jenjang: JENJANG_LIST[0], kelas: KELAS_LIST[0], rombel: '', triwulan: TRIWULAN_LIST[0], jumlahSiswa: '',
+                namaKepsek: '', namaGuru: '',
+                
+                k_aman_1: 0, k_aman_2: 0, k_aman_3: 0,
+                k_bineka_1: 0, k_bineka_2: 0, k_bineka_3: 0,
+                k_inklusif_1: 0, k_inklusif_2: 0, k_inklusif_3: 0,
+                k_belajar_1: 0, k_belajar_2: 0, k_belajar_3: 0,
+                k_refleksi_1: 0, k_refleksi_2: 0, k_refleksi_3: 0,
+                k_pimpin_1: 0, k_pimpin_2: 0, k_pimpin_3: 0,
+                
+                tuntas_literasi: '', tuntas_numerasi: '',
+                karakter_teratur: '', karakter_pantang_menyerah: '', karakter_mandiri: '',
+                tautan_bukti: '', catatan: ''
             });
+
             const [error, setError] = useState('');
 
-            const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); setError(''); };
+            const handleChange = (e) => { 
+                const { name, value, type, checked } = e.target; 
+                setFormData(prev => ({ 
+                    ...prev, 
+                    [name]: type === 'checkbox' ? (checked ? 1 : 0) : value 
+                })); 
+                setError(''); 
+            };
 
             const handleSubmit = (e) => {
                 e.preventDefault();
-                if (!formData.sekolah || !formData.rombel || !formData.jumlahSiswa || !formData.capaiLiterasi || !formData.capaiNumerasi) { setError('Mohon lengkapi semua field yang wajib diisi.'); return; }
-                const siswa = Number(formData.jumlahSiswa), lit = Number(formData.capaiLiterasi), num = Number(formData.capaiNumerasi);
+                if (!formData.sekolah || !formData.rombel || !formData.jumlahSiswa || !formData.tuntas_literasi || !formData.tuntas_numerasi || !formData.namaGuru || !formData.namaKepsek) { 
+                    setError('Mohon lengkapi semua field yang wajib diisi (termasuk nama guru dan kepsek).'); return; 
+                }
+                const siswa = Number(formData.jumlahSiswa), lit = Number(formData.tuntas_literasi), num = Number(formData.tuntas_numerasi);
                 if (siswa <= 0) { setError('Jumlah siswa harus lebih dari 0.'); return; }
-                if (lit > siswa) { setError('Siswa Capai Literasi tidak boleh melebihi Total Siswa.'); return; }
-                if (num > siswa) { setError('Siswa Capai Numerasi tidak boleh melebihi Total Siswa.'); return; }
+                if (lit > siswa) { setError('Siswa Tuntas Literasi tidak boleh melebihi Total Siswa.'); return; }
+                if (num > siswa) { setError('Siswa Tuntas Numerasi tidak boleh melebihi Total Siswa.'); return; }
 
-                onSubmit(formData);
+                const submissionData = {
+                    ...formData,
+                    materi_literasi: MATERI_LITERASI[formData.kelas]?.[formData.triwulan] || "-",
+                    materi_numerasi: MATERI_NUMERASI[formData.kelas]?.[formData.triwulan] || "-"
+                };
+
+                onSubmit(submissionData);
+                
                 setFormData(prev => ({
-                ...prev, rombel: '', jumlahSiswa: '', capaiLiterasi: '', capaiNumerasi: '',
-                keamanan: 3, kebinekaan: 3, inklusivitas: 3, catatan: '', sekolah: user?.sekolah || prev.sekolah, kecamatan: user?.kecamatan || prev.kecamatan
+                    ...prev, rombel: '', jumlahSiswa: '', tuntas_literasi: '', tuntas_numerasi: '',
+                    karakter_teratur: '', karakter_pantang_menyerah: '', karakter_mandiri: '',
+                    tautan_bukti: '', catatan: '',
+                    k_aman_1: 0, k_aman_2: 0, k_aman_3: 0, k_bineka_1: 0, k_bineka_2: 0, k_bineka_3: 0,
+                    k_inklusif_1: 0, k_inklusif_2: 0, k_inklusif_3: 0, k_belajar_1: 0, k_belajar_2: 0, k_belajar_3: 0,
+                    k_refleksi_1: 0, k_refleksi_2: 0, k_refleksi_3: 0, k_pimpin_1: 0, k_pimpin_2: 0, k_pimpin_3: 0
                 }));
             };
 
+            const getKinerjaCheckbox = (key, label) => (
+                <label className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors group">
+                    <div className="relative flex items-center justify-center pt-1">
+                        <input type="checkbox" name={key} checked={formData[key] === 1} onChange={handleChange} className="sr-only" />
+                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData[key] === 1 ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300 group-hover:border-blue-400'}`}>
+                            {formData[key] === 1 && <i className="fas fa-check text-white text-[10px]"></i>}
+                        </div>
+                    </div>
+                    <span className={`text-sm select-none flex-1 ${formData[key] === 1 ? 'text-blue-800 font-medium' : 'text-slate-600'}`}>{label}</span>
+                </label>
+            );
+
             return (
-                <div className="max-w-4xl mx-auto bg-white rounded-xl border border-slate-200 shadow-sm p-5 md:p-8">
-                <div className="mb-6 pb-4 border-b border-slate-100">
-                    <h2 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2"><i className="fas fa-edit text-blue-600"></i> Formulir Laporan Rombel</h2>
-                    <p className="text-xs md:text-sm text-slate-500">Wajib diisi oleh pihak sekolah setiap akhir triwulan.</p>
+                <div className="max-w-5xl mx-auto bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-8">
+                <div className="mb-6 pb-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2"><i className="fas fa-edit text-blue-600"></i> Input Data Evaluasi Satuan Pendidikan</h2>
+                        <p className="text-xs md:text-sm text-slate-500">Isi formulir secara lengkap dan jujur berdasarkan kondisi di lapangan.</p>
+                    </div>
                 </div>
 
                 {error && <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3"><i className="fas fa-exclamation-triangle flex-shrink-0"></i><p className="text-sm">{error}</p></div>}
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    <section>
-                    <h3 className="text-xs md:text-sm font-semibold text-blue-600 uppercase tracking-wider mb-4 border-l-4 border-blue-600 pl-2">1. Identitas Rombel</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-                        <InputGroup label="Nama Sekolah"><input type="text" name="sekolah" value={formData.sekolah} disabled className="form-input bg-slate-100 cursor-not-allowed text-slate-500" /></InputGroup>
-                        <InputGroup label="Kecamatan"><input type="text" name="kecamatan" value={formData.kecamatan} disabled className="form-input bg-slate-100 cursor-not-allowed text-slate-500" /></InputGroup>
-                        <InputGroup label="Triwulan"><select name="triwulan" value={formData.triwulan} onChange={handleChange} className="form-select">{TRIWULAN_LIST.map(t => <option key={t} value={t}>{t}</option>)}</select></InputGroup>
-                        <InputGroup label="Jenjang"><select name="jenjang" value={formData.jenjang} onChange={handleChange} className="form-select">{JENJANG_LIST.map(j => <option key={j} value={j}>{j}</option>)}</select></InputGroup>
-                        <InputGroup label="Kelas"><select name="kelas" value={formData.kelas} onChange={handleChange} className="form-select">{KELAS_LIST.map(k => <option key={k} value={k}>{k}</option>)}</select></InputGroup>
-                        <InputGroup label="Nama Rombel"><input type="text" name="rombel" value={formData.rombel} onChange={handleChange} className="form-input" placeholder="Contoh: A / MIPA 1" /></InputGroup>
-                    </div>
+                <form onSubmit={handleSubmit} className="space-y-10">
+                    <section className="bg-slate-50/50 p-4 md:p-6 rounded-xl border border-slate-100">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-5 flex items-center gap-2 border-b pb-2"><i className="fas fa-school text-blue-500"></i> Identitas Sekolah & Rombel</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <InputGroup label="Tahun Ajaran"><input type="text" name="tahunAjaran" value={formData.tahunAjaran} onChange={handleChange} className="form-input font-semibold" /></InputGroup>
+                            <InputGroup label="Nama Sekolah"><input type="text" name="sekolah" value={formData.sekolah} disabled className="form-input bg-slate-100 cursor-not-allowed text-slate-500" /></InputGroup>
+                            <InputGroup label="Kecamatan"><input type="text" name="kecamatan" value={formData.kecamatan} disabled className="form-input bg-slate-100 cursor-not-allowed text-slate-500" /></InputGroup>
+                            <InputGroup label="Nama Kepala Sekolah"><input type="text" name="namaKepsek" value={formData.namaKepsek} onChange={handleChange} className="form-input" placeholder="Nama Lengkap & Gelar" /></InputGroup>
+                            <InputGroup label="Nama Guru Kelas"><input type="text" name="namaGuru" value={formData.namaGuru} onChange={handleChange} className="form-input" placeholder="Nama Lengkap & Gelar" /></InputGroup>
+                            <InputGroup label="Jenjang"><select name="jenjang" value={formData.jenjang} onChange={handleChange} className="form-select">{JENJANG_LIST.map(j => <option key={j} value={j}>{j}</option>)}</select></InputGroup>
+                            <InputGroup label="Triwulan"><select name="triwulan" value={formData.triwulan} onChange={handleChange} className="form-select font-semibold text-blue-700">{TRIWULAN_LIST.map(t => <option key={t} value={t}>{t}</option>)}</select></InputGroup>
+                            <InputGroup label="Kelas"><select name="kelas" value={formData.kelas} onChange={handleChange} className="form-select font-semibold text-blue-700">{KELAS_LIST.map(k => <option key={k} value={k}>{k}</option>)}</select></InputGroup>
+                            <InputGroup label="Rombongan Belajar"><input type="text" name="rombel" value={formData.rombel} onChange={handleChange} className="form-input" placeholder="Contoh: A / MIPA 1" /></InputGroup>
+                            <InputGroup label="Total Siswa (Rombel)"><input type="number" name="jumlahSiswa" value={formData.jumlahSiswa} onChange={handleChange} className="form-input font-bold" min="1" /></InputGroup>
+                        </div>
                     </section>
+
                     <section>
-                    <h3 className="text-xs md:text-sm font-semibold text-indigo-600 uppercase tracking-wider mb-4 border-l-4 border-indigo-600 pl-2">2. Capaian Belajar</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5">
-                        <InputGroup label="Jumlah Siswa Rombel"><input type="number" min="1" name="jumlahSiswa" value={formData.jumlahSiswa} onChange={handleChange} className="form-input" placeholder="Total" /></InputGroup>
-                        <InputGroup label="Siswa Capai Literasi"><input type="number" min="0" name="capaiLiterasi" value={formData.capaiLiterasi} onChange={handleChange} className="form-input" placeholder="Literasi" /></InputGroup>
-                        <InputGroup label="Siswa Capai Numerasi"><input type="number" min="0" name="capaiNumerasi" value={formData.capaiNumerasi} onChange={handleChange} className="form-input" placeholder="Numerasi" /></InputGroup>
-                    </div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2 border-b pb-2"><i className="fas fa-tasks text-indigo-500"></i> Capaian Target Kinerja (Centang Jika "Ya")</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-slate-500 bg-slate-100 p-2 rounded">Iklim Keamanan</p>
+                                {getKinerjaCheckbox('k_aman_1', 'Semua siswa merasa aman di sekolah')}
+                                {getKinerjaCheckbox('k_aman_2', 'Semua kasus kekerasan ditangani ≤ 3 hari')}
+                                {getKinerjaCheckbox('k_aman_3', 'Sekolah memiliki peraturan/tata tertib untuk mewujudkan keamanan')}
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-slate-500 bg-slate-100 p-2 rounded">Iklim Kebhinekaan</p>
+                                {getKinerjaCheckbox('k_bineka_1', 'Semua siswa merasa dihargai dalam perbedaan')}
+                                {getKinerjaCheckbox('k_bineka_2', 'Tidak ada diskriminasi yang tidak ditangani')}
+                                {getKinerjaCheckbox('k_bineka_3', 'Praktik pembelajaran menghargai kebhinekaan')}
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-slate-500 bg-slate-100 p-2 rounded">Iklim Inklusivitas</p>
+                                {getKinerjaCheckbox('k_inklusif_1', 'Semua siswa berkebutuhan teridentifikasi')}
+                                {getKinerjaCheckbox('k_inklusif_2', 'Guru melakukan adaptasi pembelajaran')}
+                                {getKinerjaCheckbox('k_inklusif_3', 'Tidak ada siswa yang terabaikan dalam proses belajar')}
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-slate-500 bg-slate-100 p-2 rounded">Kualitas Pembelajaran</p>
+                                {getKinerjaCheckbox('k_belajar_1', 'Pembelajaran memenuhi standar aktif & bermakna')}
+                                {getKinerjaCheckbox('k_belajar_2', 'Semua guru menggunakan asesmen formatif')}
+                                {getKinerjaCheckbox('k_belajar_3', 'Ada peningkatan capaian belajar (literasi/numerasi) tiap triwulan')}
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-slate-500 bg-slate-100 p-2 rounded">Refleksi Guru</p>
+                                {getKinerjaCheckbox('k_refleksi_1', 'Setiap guru melakukan refleksi tiap triwulan')}
+                                {getKinerjaCheckbox('k_refleksi_2', 'Setiap guru melakukan perbaikan nyata sebagai tindak lanjut refleksi')}
+                                {getKinerjaCheckbox('k_refleksi_3', 'Ada perubahan praktik mengajar setiap guru')}
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-slate-500 bg-slate-100 p-2 rounded">Kepemimpinan Instruksional</p>
+                                {getKinerjaCheckbox('k_pimpin_1', 'Kepala sekolah aktif memantau pembelajaran di semua kelas')}
+                                {getKinerjaCheckbox('k_pimpin_2', 'Supervisi berdampak pada perbaikan kinerja semua guru')}
+                                {getKinerjaCheckbox('k_pimpin_3', 'Ada budaya belajar semua guru di sekolah')}
+                            </div>
+                        </div>
                     </section>
+
+                    <section className="bg-blue-50/30 p-4 md:p-6 rounded-xl border border-blue-100">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2 border-b pb-2"><i className="fas fa-book-open text-blue-600"></i> Kemampuan Literasi & Numerasi</h3>
+                        <p className="text-xs text-slate-500 mb-4">Materi menyesuaikan dengan Kelas dan Triwulan yang dipilih di atas.</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white p-4 rounded-lg border border-blue-200 shadow-sm flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2"><i className="fas fa-book-reader text-blue-500"></i><span className="font-bold text-sm text-slate-700">Target Literasi</span></div>
+                                    <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 min-h-[60px] italic">
+                                        "{MATERI_LITERASI[formData.kelas]?.[formData.triwulan] || 'Materi tidak ditemukan untuk kombinasi ini.'}"
+                                    </p>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                    <InputGroup label="Jumlah Siswa Tuntas Literasi">
+                                        <input type="number" name="tuntas_literasi" value={formData.tuntas_literasi} onChange={handleChange} className="form-input border-blue-300 font-bold text-blue-700" placeholder="Contoh: 25" min="0" />
+                                    </InputGroup>
+                                </div>
+                            </div>
+                            <div className="bg-white p-4 rounded-lg border border-indigo-200 shadow-sm flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2"><i className="fas fa-calculator text-indigo-500"></i><span className="font-bold text-sm text-slate-700">Target Numerasi</span></div>
+                                    <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 min-h-[60px] italic">
+                                        "{MATERI_NUMERASI[formData.kelas]?.[formData.triwulan] || 'Materi tidak ditemukan untuk kombinasi ini.'}"
+                                    </p>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                    <InputGroup label="Jumlah Siswa Tuntas Numerasi">
+                                        <input type="number" name="tuntas_numerasi" value={formData.tuntas_numerasi} onChange={handleChange} className="form-input border-indigo-300 font-bold text-indigo-700" placeholder="Contoh: 20" min="0" />
+                                    </InputGroup>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
                     <section>
-                    <h3 className="text-xs md:text-sm font-semibold text-emerald-600 uppercase tracking-wider mb-4 border-l-4 border-emerald-600 pl-2">3. Iklim Sekolah (Skala 1-5)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                        <RangeSlider name="keamanan" label="Keamanan" value={formData.keamanan} onChange={handleChange} desc="(Bullying, Fasilitas fisik aman)" />
-                        <RangeSlider name="kebinekaan" label="Kebinekaan" value={formData.kebinekaan} onChange={handleChange} desc="(Toleransi, Kegiatan budaya)" />
-                        <RangeSlider name="inklusivitas" label="Inklusivitas" value={formData.inklusivitas} onChange={handleChange} desc="(Layanan ABK, Kesetaraan)" />
-                    </div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2 border-b pb-2"><i className="fas fa-star text-amber-400"></i> Target Karakter Siswa</h3>
+                        <div className="space-y-4">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 md:p-4 bg-white border border-slate-200 rounded-lg">
+                                <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa menunjukkan kebiasaan belajar teratur (kehadiran, mengerjakan tugas, membawa perlengkapan, sungguh-sungguh)</p>
+                                <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
+                                    <input type="number" name="karakter_teratur" value={formData.karakter_teratur} onChange={handleChange} className="form-input text-sm" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 md:p-4 bg-white border border-slate-200 rounded-lg">
+                                <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa tidak mudah menyerah saat belajar dan menghadapi soal literasi dan numerasi</p>
+                                <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
+                                    <input type="number" name="karakter_pantang_menyerah" value={formData.karakter_pantang_menyerah} onChange={handleChange} className="form-input text-sm" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 md:p-4 bg-white border border-slate-200 rounded-lg">
+                                <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa mampu menyelesaikan tugas literasi dan numerasi secara mandiri</p>
+                                <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
+                                    <input type="number" name="karakter_mandiri" value={formData.karakter_mandiri} onChange={handleChange} className="form-input text-sm" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                </div>
+                            </div>
+                        </div>
                     </section>
-                    <section>
-                    <h3 className="text-xs md:text-sm font-semibold text-amber-600 uppercase tracking-wider mb-4 border-l-4 border-amber-600 pl-2">4. Tindak Lanjut & Catatan</h3>
-                    <textarea name="catatan" value={formData.catatan} onChange={handleChange} className="w-full p-3 rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none text-sm" rows="3" placeholder="Masukkan catatan..."></textarea>
+
+                    <section className="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2 border-b pb-2"><i className="fas fa-folder-open text-emerald-600"></i> Bukti Dukung & Tindak Lanjut</h3>
+                        <div className="space-y-4">
+                            <InputGroup label="Tautan / Link Bukti Dukung (Google Drive, dll)">
+                                <input 
+                                    type="url" 
+                                    name="tautan_bukti" 
+                                    value={formData.tautan_bukti} 
+                                    onChange={handleChange} 
+                                    className="form-input text-blue-600 underline" 
+                                    placeholder="https://drive.google.com/..." 
+                                />
+                            </InputGroup>
+                            <InputGroup label="Catatan Evaluasi / Rencana Tindak Lanjut">
+                                <textarea name="catatan" value={formData.catatan} onChange={handleChange} className="form-input" rows="3" placeholder="Masukkan catatan hasil evaluasi..."></textarea>
+                            </InputGroup>
+                        </div>
                     </section>
-                    <div className="pt-6 border-t border-slate-100 flex justify-end">
-                    <button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium shadow-md transition-colors flex items-center justify-center gap-2">
-                        <i className="fas fa-check-circle"></i> Simpan Data Rombel
+
+                    <div className="pt-2 border-t border-slate-200 flex justify-end pb-8">
+                    <button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-10 py-3.5 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                        <i className="fas fa-paper-plane"></i> Kirim Data Rombel
                     </button>
                     </div>
                 </form>
@@ -516,20 +760,6 @@
             );
         }
 
-        function RangeSlider({ name, label, value, onChange, desc }) {
-            return (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm font-semibold text-slate-700">{label}</label>
-                    <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded text-xs">{value} / 5</span>
-                </div>
-                <p className="text-[10px] text-slate-500 mb-4">{desc}</p>
-                <input type="range" name={name} min="1" max="5" step="1" value={value} onChange={onChange} className="w-full accent-emerald-600" />
-                <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-medium"><span>Rendah</span><span>Sangat Baik</span></div>
-                </div>
-            );
-        }
-
         function Monitoring({ records, onDelete, user, thresholds, npsnDB }) {
             const [filterKec, setFilterKec] = useState('Semua');
             const [filterWaktu, setFilterWaktu] = useState('Semua');
@@ -537,10 +767,8 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [expandedSchool, setExpandedSchool] = useState(null);
             
-            // State untuk Sub Menu (Tabs) di menu Monitoring Data
             const [subTab, setSubTab] = useState(user?.role === 'dinas' ? 'progres' : 'rekap');
 
-            // Perhitungan Data Progress (Grafik Batang Bertumpuk - Khusus Dinas)
             const progressData = useMemo(() => {
                 if (user?.role !== 'dinas') return []; 
 
@@ -562,13 +790,12 @@
                 return KECAMATAN_LIST.map(kec => {
                     const total = totalPerKec[kec] || 0;
                     const inputted = inputtedPerKec[kec] || 0;
-                    const sisa = total - inputted; // Sisa yang belum mengisi
+                    const sisa = total - inputted; 
                     const pct = total > 0 ? Math.round((inputted / total) * 100) : 0;
                     return { name: kec, Total: total, Mengisi: inputted, Sisa: sisa, Persentase: pct };
                 }).filter(d => d.Total > 0);
             }, [records, npsnDB, user]);
 
-            // Custom Tooltip saat batang grafik disentuh
             const CustomTooltip = ({ active, payload, label }) => {
                 if (active && payload && payload.length) {
                     const data = payload[0].payload;
@@ -598,23 +825,37 @@
                 const groups = {};
                 filteredData.forEach(r => {
                     if (!groups[r.sekolah]) {
-                        groups[r.sekolah] = { sekolah: r.sekolah, kecamatan: r.kecamatan, jenjang: r.jenjang, records: [], totalSiswa: 0 };
+                        groups[r.sekolah] = { sekolah: r.sekolah, kecamatan: r.kecamatan, jenjang: r.jenjang, records: [], totalSiswa: 0, _uniqueRombels: {} };
                     }
                     groups[r.sekolah].records.push(r);
-                    groups[r.sekolah].totalSiswa += (Number(r.jumlahSiswa) || 0);
+                    
+                    const rombelKey = `${r.kelas}-${r.rombel}`.toLowerCase().replace(/\s+/g, '');
+                    groups[r.sekolah]._uniqueRombels[rombelKey] = Number(r.jumlahSiswa) || 0;
                 });
-                return Object.values(groups).sort((a, b) => a.sekolah.localeCompare(b.sekolah));
+                
+                return Object.values(groups).map(g => {
+                    const totalSiswaReal = Object.values(g._uniqueRombels).reduce((a,b)=>a+b, 0);
+                    return { ...g, totalSiswa: totalSiswaReal };
+                }).sort((a, b) => a.sekolah.localeCompare(b.sekolah));
             }, [filteredData]);
 
             const calculateMetrics = (row) => {
-                const litPct = Math.round((Number(row.capaiLiterasi) / Number(row.jumlahSiswa)) * 100);
-                const numPct = Math.round((Number(row.capaiNumerasi) / Number(row.jumlahSiswa)) * 100);
+                const litRaw = Number(row.tuntas_literasi || row.capaiLiterasi || 0);
+                const numRaw = Number(row.tuntas_numerasi || row.capaiNumerasi || 0);
+                const litPct = Math.round((litRaw / Number(row.jumlahSiswa)) * 100);
+                const numPct = Math.round((numRaw / Number(row.jumlahSiswa)) * 100);
                 const avgPct = (litPct + numPct) / 2;
-                const avgIklim = (Number(row.keamanan) + Number(row.kebinekaan) + Number(row.inklusivitas)) / 3;
+                
+                const secScore = Number(row.k_aman_1||0) + Number(row.k_aman_2||0) + Number(row.k_aman_3||0) || Number(row.keamanan||0);
+                const divScore = Number(row.k_bineka_1||0) + Number(row.k_bineka_2||0) + Number(row.k_bineka_3||0) || Number(row.kebinekaan||0);
+                const incScore = Number(row.k_inklusif_1||0) + Number(row.k_inklusif_2||0) + Number(row.k_inklusif_3||0) || Number(row.inklusivitas||0);
+                const avgIklim = (secScore + divScore + incScore) / 3;
+
                 let kategori = '🔴', tindakLanjut = 'Perlu Intervensi Segera';
                 if (avgPct >= thresholds.pctTinggi && avgIklim >= thresholds.iklimTinggi) { kategori = '⭐⭐⭐'; tindakLanjut = 'Pertahankan Kinerja'; }
                 else if (avgPct >= thresholds.pctSedang || avgIklim >= thresholds.iklimSedang) { kategori = '⭐⭐'; tindakLanjut = 'Bimbingan Lanjutan'; }
-                return { litPct, numPct, kategori, tindakLanjut };
+                
+                return { litPct, numPct, secScore, divScore, incScore, kategori, tindakLanjut, litRaw, numRaw };
             };
 
             const toggleSchool = (sekolah) => {
@@ -625,7 +866,6 @@
             return (
                 <div className="flex flex-col h-full space-y-4">
                     
-                    {/* --- TABS NAVIGASI KHUSUS DINAS --- */}
                     {user?.role === 'dinas' && (
                         <div className="flex gap-2 flex-shrink-0">
                             <button 
@@ -643,7 +883,6 @@
                         </div>
                     )}
 
-                    {/* --- TAB 1: GRAFIK PROGRES (HANYA DINAS) --- */}
                     {subTab === 'progres' && user?.role === 'dinas' && (
                         <div className="p-4 md:p-5 border border-slate-200 bg-white rounded-xl shadow-sm flex-1 flex flex-col min-h-0">
                             <h2 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 flex-shrink-0">
@@ -667,9 +906,7 @@
                                                         { value: 'Belum Mengisi (Silver)', type: 'square', id: 'sisa', color: '#cbd5e1' }
                                                     ]}
                                                 />
-                                                {/* Bar Pertama yang terisi (Warna Biru) */}
                                                 <Bar dataKey="Mengisi" stackId="a" fill="#3b82f6" />
-                                                {/* Bar Sisa bertumpuk di atas biru (Warna Silver) */}
                                                 <Bar dataKey="Sisa" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
                                             </BarChart>
                                         </ResponsiveContainer>
@@ -683,7 +920,6 @@
                         </div>
                     )}
 
-                    {/* --- TAB 2: DAFTAR SEKOLAH --- */}
                     {subTab === 'rekap' && (
                         <>
                             <div className="flex-shrink-0 p-4 md:p-5 border border-slate-200 bg-white rounded-xl shadow-sm">
@@ -693,7 +929,6 @@
                                     </h2>
                                     
                                     <div className="flex flex-col md:flex-row gap-3 w-full">
-                                        {/* Kotak Pencarian Nama Sekolah */}
                                         <div className="relative flex-1">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                 <i className="fas fa-search text-slate-400 text-xs"></i>
@@ -707,7 +942,6 @@
                                             />
                                         </div>
 
-                                        {/* Filter Dropdown */}
                                         <div className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto">
                                             {user?.role === 'dinas' && (
                                             <select value={filterKec} onChange={(e) => setFilterKec(e.target.value)} className="p-2 border border-slate-300 rounded-lg text-xs md:text-sm bg-white shadow-sm flex-1 md:w-40 outline-none focus:border-blue-500">
@@ -728,7 +962,6 @@
                                 </div>
                             </div>
 
-                            {/* Area Daftar Sekolah (Gaya Accordion) */}
                             <div className="flex-1 overflow-y-auto pb-4 no-scrollbar">
                                 {groupedData.length === 0 ? (
                                     <div className="p-8 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
@@ -738,7 +971,6 @@
                                     groupedData.map(group => (
                                         <div key={group.sekolah} className="mb-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                             
-                                            {/* Header Accordion - Klik untuk membuka */}
                                             <div 
                                                 className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors"
                                                 onClick={() => toggleSchool(group.sekolah)}
@@ -756,10 +988,9 @@
                                                 </div>
                                             </div>
 
-                                            {/* Detail Tabel Rombel di dalam Sekolah tersebut */}
                                             {expandedSchool === group.sekolah && (
                                                 <div className="border-t border-slate-100 bg-slate-50 p-0 overflow-x-auto no-scrollbar">
-                                                    <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[700px]">
+                                                    <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[800px]">
                                                         <thead className="bg-slate-100 text-slate-600">
                                                             <tr>
                                                                 <th className="p-3 border-b font-semibold">Periode</th>
@@ -768,7 +999,7 @@
                                                                 <th className="p-3 border-b font-semibold bg-blue-50/50">Literasi</th>
                                                                 <th className="p-3 border-b font-semibold bg-indigo-50/50">Numerasi</th>
                                                                 <th className="p-3 border-b font-semibold text-center" title="Aman/Bineka/Inklusif">Iklim (A/B/I)</th>
-                                                                <th className="p-3 border-b font-semibold">Tindak Lanjut & Catatan</th>
+                                                                <th className="p-3 border-b font-semibold">Tautan Bukti</th>
                                                                 <th className="p-3 border-b font-semibold text-center">Hapus</th>
                                                             </tr>
                                                         </thead>
@@ -777,21 +1008,25 @@
                                                                 const metrics = calculateMetrics(row);
                                                                 return (
                                                                     <tr key={row.id} className="hover:bg-white border-b border-slate-100 transition-colors">
-                                                                        <td className="p-3 text-slate-600 font-medium">{row.triwulan}</td>
+                                                                        <td className="p-3 text-slate-600 font-medium">
+                                                                            {row.triwulan}<br/>
+                                                                            <span className="text-[9px] text-slate-400">{row.tahunAjaran}</span>
+                                                                        </td>
                                                                         <td className="p-3 font-semibold text-slate-800">{row.kelas} <span className="font-normal text-slate-500">Ruang {row.rombel}</span></td>
                                                                         <td className="p-3 text-center font-bold text-slate-700">{row.jumlahSiswa}</td>
-                                                                        <td className="p-3 bg-blue-50/20"><div className="font-semibold text-blue-800">{row.capaiLiterasi} / {row.jumlahSiswa}</div><div className="text-[9px] md:text-[10px] bg-blue-100 inline-block px-1.5 rounded text-blue-700">{metrics.litPct}%</div></td>
-                                                                        <td className="p-3 bg-indigo-50/20"><div className="font-semibold text-indigo-800">{row.capaiNumerasi} / {row.jumlahSiswa}</div><div className="text-[9px] md:text-[10px] bg-indigo-100 inline-block px-1.5 rounded text-indigo-700">{metrics.numPct}%</div></td>
+                                                                        <td className="p-3 bg-blue-50/20"><div className="font-semibold text-blue-800">{metrics.litRaw} / {row.jumlahSiswa}</div><div className="text-[9px] md:text-[10px] bg-blue-100 inline-block px-1.5 rounded text-blue-700">{metrics.litPct}%</div></td>
+                                                                        <td className="p-3 bg-indigo-50/20"><div className="font-semibold text-indigo-800">{metrics.numRaw} / {row.jumlahSiswa}</div><div className="text-[9px] md:text-[10px] bg-indigo-100 inline-block px-1.5 rounded text-indigo-700">{metrics.numPct}%</div></td>
                                                                         <td className="p-3 text-center">
                                                                             <div className="flex justify-center gap-1">
-                                                                                <ScoreBadge score={row.keamanan} />
-                                                                                <ScoreBadge score={row.kebinekaan} />
-                                                                                <ScoreBadge score={row.inklusivitas} />
+                                                                                <ScoreBadge score={metrics.secScore} max={3} />
+                                                                                <ScoreBadge score={metrics.divScore} max={3} />
+                                                                                <ScoreBadge score={metrics.incScore} max={3} />
                                                                             </div>
                                                                         </td>
                                                                         <td className="p-3">
-                                                                            <div className={`text-[9px] md:text-[10px] px-2 py-1 rounded-full font-medium inline-block mb-1.5 ${metrics.tindakLanjut.includes('Intervensi') ? 'bg-red-100 text-red-700' : metrics.tindakLanjut.includes('Bimbingan') ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{metrics.tindakLanjut}</div>
-                                                                            {row.catatan && (<div className="text-[9px] md:text-[10px] text-slate-600 max-w-[150px] md:max-w-[200px] truncate" title={row.catatan}><strong className="text-slate-700">Catatan:</strong> {row.catatan}</div>)}
+                                                                            {row.tautan_bukti ? (
+                                                                                <a href={row.tautan_bukti} target="_blank" className="text-blue-600 hover:underline flex items-center gap-1"><i className="fas fa-link"></i> Buka Link</a>
+                                                                            ) : <span className="text-slate-400">-</span>}
                                                                         </td>
                                                                         <td className="p-3 text-center">
                                                                             <button onClick={() => onDelete(row.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Hapus Data"><i className="fas fa-trash-alt"></i></button>
@@ -813,57 +1048,325 @@
             );
         }
 
-        function ScoreBadge({ score }) {
+        // max score dinamis, sekarang 3
+        function ScoreBadge({ score, max = 5 }) {
             const num = Number(score);
-            let color = num >= 4 ? 'bg-emerald-100 text-emerald-700' : num === 3 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
+            let color = num >= Math.ceil(max*0.8) ? 'bg-emerald-100 text-emerald-700' : num >= Math.ceil(max*0.5) ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
             return <span className={`inline-block w-5 h-5 md:w-6 md:h-6 leading-5 md:leading-6 text-center rounded-full font-bold text-[9px] md:text-[10px] ${color}`}>{num}</span>;
         }
 
         function Laporan({ records, user }) {
+            const [filterKec, setFilterKec] = useState('Semua');
+            const [filterSekolah, setFilterSekolah] = useState(user?.role === 'sekolah' ? user.sekolah : 'Semua');
+            const [filterTriwulan, setFilterTriwulan] = useState('Semua');
+            const [printType, setPrintType] = useState('rekap');
+
+            const [blankKelas, setBlankKelas] = useState(KELAS_LIST[0]);
+            const [blankTriwulan, setBlankTriwulan] = useState(TRIWULAN_LIST[0]);
+
+            const uniqueSekolahList = useMemo(() => {
+                const list = records.filter(r => filterKec === 'Semua' || r.kecamatan === filterKec).map(r => r.sekolah);
+                return [...new Set(list)].sort();
+            }, [records, filterKec]);
+
+            const filteredRecords = useMemo(() => {
+                return records.filter(r => {
+                    return (filterKec === 'Semua' || r.kecamatan === filterKec) &&
+                           (filterSekolah === 'Semua' || r.sekolah === filterSekolah) &&
+                           (filterTriwulan === 'Semua' || r.triwulan === filterTriwulan);
+                });
+            }, [records, filterKec, filterSekolah, filterTriwulan]);
+
+            const blankRecord = {
+                id: 'blank', tahunAjaran: "....................", sekolah: "...........................................", namaKepsek: "", namaGuru: "",
+                jenjang: "SD / SMP", kecamatan: "....................", 
+                triwulan: blankTriwulan, kelas: blankKelas, 
+                rombel: "..........", jumlahSiswa: ".......",
+                materi_literasi: MATERI_LITERASI[blankKelas]?.[blankTriwulan] || "-", 
+                materi_numerasi: MATERI_NUMERASI[blankKelas]?.[blankTriwulan] || "-",
+                tuntas_literasi: ".......", tuntas_numerasi: ".......", karakter_teratur: ".......", karakter_pantang_menyerah: ".......", karakter_mandiri: ".......",
+                k_aman_1: 0, k_aman_2: 0, k_aman_3: 0, k_bineka_1: 0, k_bineka_2: 0, k_bineka_3: 0, k_inklusif_1: 0, k_inklusif_2: 0, k_inklusif_3: 0,
+                k_belajar_1: 0, k_belajar_2: 0, k_belajar_3: 0, k_refleksi_1: 0, k_refleksi_2: 0, k_refleksi_3: 0, k_pimpin_1: 0, k_pimpin_2: 0, k_pimpin_3: 0,
+                tautan_bukti: "", catatan: ""
+            };
+
+            const recordsToPrint = printType === 'blank' ? [blankRecord] : filteredRecords;
+
             const handleExportCSV = () => {
                 if(records.length === 0) return alert('Tidak ada data.');
-                const headers = ["ID", "Sekolah", "Kecamatan", "Jenjang", "Kelas", "Rombel", "Triwulan", "Total Siswa", "Capai Literasi", "Capai Numerasi", "Keamanan", "Kebinekaan", "Inklusivitas", "Catatan"];
-                const rows = records.map(r => [r.id, r.sekolah, r.kecamatan, r.jenjang, r.kelas, r.rombel, r.triwulan, r.jumlahSiswa, r.capaiLiterasi, r.capaiNumerasi, r.keamanan, r.kebinekaan, r.inklusivitas, `"${r.catatan || ''}"`]);
+                const headers = [
+                    "ID", "Tahun Ajaran", "Sekolah", "Kecamatan", "Jenjang", "Kelas", "Rombel", "Triwulan", 
+                    "Jumlah Siswa", "Nama Kepala Sekolah", "Nama Guru Kelas",
+                    "Tuntas Literasi", "Tuntas Numerasi", 
+                    "Skor Keamanan", "Skor Kebinekaan", "Skor Inklusif", "Skor Pembelajaran", "Skor Refleksi", "Skor Kepemimpinan",
+                    "Karakter Teratur", "Karakter Pantang Menyerah", "Karakter Mandiri", "Link Bukti Dukung", "Catatan"
+                ];
+                const rows = records.map(r => {
+                    const secScore = Number(r.k_aman_1||0) + Number(r.k_aman_2||0) + Number(r.k_aman_3||0) || Number(r.keamanan||0);
+                    const divScore = Number(r.k_bineka_1||0) + Number(r.k_bineka_2||0) + Number(r.k_bineka_3||0) || Number(r.kebinekaan||0);
+                    const incScore = Number(r.k_inklusif_1||0) + Number(r.k_inklusif_2||0) + Number(r.k_inklusif_3||0) || Number(r.inklusivitas||0);
+                    const belScore = Number(r.k_belajar_1||0) + Number(r.k_belajar_2||0) + Number(r.k_belajar_3||0);
+                    const refScore = Number(r.k_refleksi_1||0) + Number(r.k_refleksi_2||0) + Number(r.k_refleksi_3||0);
+                    const pimScore = Number(r.k_pimpin_1||0) + Number(r.k_pimpin_2||0) + Number(r.k_pimpin_3||0);
+
+                    return [
+                        r.id, r.tahunAjaran||"-", r.sekolah, r.kecamatan, r.jenjang, r.kelas, r.rombel, r.triwulan, 
+                        r.jumlahSiswa, `"${r.namaKepsek || '-'}"`, `"${r.namaGuru || '-'}"`,
+                        r.tuntas_literasi||r.capaiLiterasi||0, r.tuntas_numerasi||r.capaiNumerasi||0, 
+                        secScore, divScore, incScore, belScore, refScore, pimScore,
+                        r.karakter_teratur||0, r.karakter_pantang_menyerah||0, r.karakter_mandiri||0, 
+                        `"${r.tautan_bukti || ''}"`, `"${r.catatan || ''}"`
+                    ];
+                });
                 const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `Laporan_SPPD_${new Date().getTime()}.csv`);
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
             };
 
+            const doPrint = (type) => {
+                if (type === 'detail' && filteredRecords.length === 0) {
+                    alert('Tidak ada data rombel yang sesuai dengan filter.'); return;
+                }
+                setPrintType(type);
+                setTimeout(() => window.print(), 100);
+            };
+
             return (
-                <div className="max-w-3xl mx-auto space-y-6">
-                <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm text-center">
-                    <div className="bg-blue-100 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-4"><i className="fas fa-download text-blue-600 text-xl md:text-2xl"></i></div>
-                    <h2 className="text-xl md:text-2xl font-bold text-slate-800 mb-2">Pusat Unduhan Laporan</h2>
-                    <p className="text-xs md:text-sm text-slate-500 mb-6 md:mb-8 max-w-lg mx-auto">Unduh rekapitulasi data pemantauan pendidikan untuk keperluan analisis kebijakan.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div className="border border-slate-200 p-5 rounded-xl text-left">
-                        <h3 className="font-bold text-base md:text-lg text-slate-800 mb-1">Laporan Rekap Wilayah</h3>
-                        <p className="text-xs text-slate-500 mb-4 md:mb-6 md:h-10">Data seluruh Rombel dan Sekolah dalam wilayah pemantauan Anda.</p>
-                        <div className="flex gap-2">
-                        <button onClick={() => window.print()} className="flex-1 bg-white border border-slate-300 text-slate-700 py-2 rounded-lg text-xs md:text-sm font-semibold hover:bg-slate-50 flex items-center justify-center gap-2"><i className="fas fa-print"></i> PDF</button>
-                        <button onClick={handleExportCSV} className="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 py-2 rounded-lg text-xs md:text-sm font-semibold hover:bg-emerald-100 flex items-center justify-center gap-2"><i className="fas fa-file-excel"></i> Excel</button>
+                <div className="max-w-4xl mx-auto space-y-6 relative">
+                    <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <div className="bg-blue-100 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-4"><i className="fas fa-download text-blue-600 text-xl md:text-2xl"></i></div>
+                        <h2 className="text-xl md:text-2xl font-bold text-slate-800 mb-2">Pusat Unduhan Laporan & Instrumen</h2>
+                        <p className="text-xs md:text-sm text-slate-500 mb-6 md:mb-8 max-w-lg mx-auto">Unduh rekapitulasi data atau cetak dokumen instrumen kosong & detail per rombongan belajar.</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                            
+                            <div className="border border-amber-200 bg-amber-50/30 p-5 rounded-xl text-left md:col-span-2 shadow-sm">
+                                <div className="flex justify-between items-center mb-1">
+                                    <h3 className="font-bold text-base md:text-lg text-amber-900">Unduh Format Instrumen Kosong</h3>
+                                </div>
+                                <p className="text-xs text-slate-600 mb-4">Cetak formulir instrumen kosong untuk diisi secara manual oleh guru sebelum diinput ke dalam sistem.</p>
+                                
+                                <div className="flex flex-wrap gap-2 mb-4 bg-white p-3 rounded-lg border border-amber-200">
+                                    <select value={blankKelas} onChange={(e) => setBlankKelas(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none focus:border-amber-500 cursor-pointer">
+                                        {KELAS_LIST.map(k => <option key={k} value={k}>{k}</option>)}
+                                    </select>
+                                    <select value={blankTriwulan} onChange={(e) => setBlankTriwulan(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none focus:border-amber-500 cursor-pointer">
+                                        {TRIWULAN_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+
+                                <button onClick={() => doPrint('blank')} className="w-full bg-amber-600 text-white py-2.5 rounded-lg text-xs md:text-sm font-bold hover:bg-amber-700 flex items-center justify-center gap-2 shadow-sm transition-transform hover:-translate-y-0.5">
+                                    <i className="fas fa-file-pdf"></i> Cetak Formulir Kosong
+                                </button>
+                            </div>
+
+                            <div className="border border-emerald-200 bg-emerald-50/30 p-5 rounded-xl text-left md:col-span-2 shadow-sm">
+                                <div className="flex justify-between items-center mb-1">
+                                    <h3 className="font-bold text-base md:text-lg text-emerald-900">Cetak Detail Instrumen (Sesuai Format Docx)</h3>
+                                </div>
+                                <p className="text-xs text-slate-600 mb-4">Cetak halaman evaluasi detail yang sudah terisi, terpisah per halaman untuk masing-masing rombel.</p>
+                                
+                                <div className="flex flex-wrap gap-2 mb-4 bg-white p-3 rounded-lg border border-slate-200">
+                                    {user?.role === 'dinas' && (
+                                        <select value={filterKec} onChange={(e) => {setFilterKec(e.target.value); setFilterSekolah('Semua');}} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none">
+                                            <option value="Semua">Semua Kecamatan</option>
+                                            {KECAMATAN_LIST.map(k => <option key={k} value={k}>{k}</option>)}
+                                        </select>
+                                    )}
+                                    
+                                    {user?.role === 'sekolah' ? (
+                                        <input type="text" disabled value={user.sekolah} className="p-2 border border-slate-300 rounded text-xs text-slate-500 flex-1 min-w-[120px] bg-slate-100 cursor-not-allowed font-semibold" />
+                                    ) : (
+                                        <select value={filterSekolah} onChange={(e) => setFilterSekolah(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none">
+                                            <option value="Semua">Semua Sekolah</option>
+                                            {uniqueSekolahList.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    )}
+
+                                    <select value={filterTriwulan} onChange={(e) => setFilterTriwulan(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none">
+                                        <option value="Semua">Semua Triwulan</option>
+                                        {TRIWULAN_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+
+                                <button onClick={() => doPrint('detail')} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-xs md:text-sm font-bold hover:bg-emerald-700 flex items-center justify-center gap-2 shadow-sm transition-transform hover:-translate-y-0.5">
+                                    <i className="fas fa-file-pdf"></i> Cetak Instrumen Terisi ({filteredRecords.length} Rombel)
+                                </button>
+                            </div>
+
+                            <div className="border border-blue-200 bg-blue-50/30 p-5 rounded-xl text-left md:col-span-2">
+                                <h3 className="font-bold text-base md:text-lg text-blue-900 mb-1">Laporan Excel (CSV) Seluruh Data</h3>
+                                <p className="text-xs text-slate-600 mb-4">Mencakup semua data jawaban per indikator, materi literasi numerasi, dan URL bukti dukung yang dikirimkan sekolah.</p>
+                                <div className="flex gap-2">
+                                    <button onClick={handleExportCSV} className="w-full bg-blue-600 text-white border border-blue-700 py-3 rounded-lg text-xs md:text-sm font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-sm transition-transform hover:-translate-y-0.5"><i className="fas fa-file-excel"></i> Download File CSV Lengkap</button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
-                    {user?.role === 'dinas' && (
-                        <div className="border border-blue-200 bg-blue-50/30 p-5 rounded-xl text-left">
-                        <h3 className="font-bold text-base md:text-lg text-blue-900 mb-1">Laporan Kabupaten</h3>
-                        <p className="text-xs text-slate-600 mb-4 md:mb-6 md:h-10">Agregasi performa 16 Kecamatan se-Kabupaten Donggala.</p>
-                        <div className="flex gap-2">
-                            <button onClick={() => window.print()} className="flex-1 bg-white border border-blue-300 text-blue-700 py-2 rounded-lg text-xs md:text-sm font-semibold hover:bg-blue-50 flex items-center justify-center gap-2"><i className="fas fa-print"></i> PDF</button>
-                            <button onClick={handleExportCSV} className="flex-1 bg-blue-600 text-white border border-blue-700 py-2 rounded-lg text-xs md:text-sm font-semibold hover:bg-blue-700 flex items-center justify-center gap-2"><i className="fas fa-file-download"></i> CSV</button>
-                        </div>
-                        </div>
-                    )}
+
+                    <div id="print-area" className="hidden print:block p-4 md:p-8 bg-white text-black font-serif">
+                        {printType === 'rekap' ? (
+                            <div className="text-center font-sans">
+                                <h1 className="text-2xl font-bold mb-4 border-b pb-4">Laporan Pemantauan Pendidikan Dasar<br/>Kabupaten Donggala</h1>
+                                <table className="w-full text-left border-collapse text-xs print-table">
+                                <thead><tr><th>Kecamatan</th><th>Sekolah</th><th>Siswa</th><th>Lit</th><th>Num</th></tr></thead>
+                                <tbody>{records.map(r => (<tr key={r.id}><td>{r.kecamatan}</td><td>{r.sekolah}</td><td className="text-center">{r.jumlahSiswa}</td><td className="text-center">{r.tuntas_literasi||r.capaiLiterasi||0}</td><td className="text-center">{r.tuntas_numerasi||r.capaiNumerasi||0}</td></tr>))}</tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            recordsToPrint.map((r, i) => (
+                                <div key={r.id + i} className={`w-full ${i < recordsToPrint.length - 1 ? 'print:break-after-page' : ''} mb-12`}>
+                                    <h2 className="text-center font-bold text-base mb-6 leading-relaxed">
+                                        STRUKTUR DAN INPUT DATA PER ROMBEL<br/>SATUAN PENDIDIKAN
+                                    </h2>
+                                    
+                                    <h3 className="font-bold text-sm mb-2">Identitas Sekolah</h3>
+                                    <table className="w-full text-sm mb-6 border-none">
+                                        <tbody>
+                                            <tr><td className="w-48 py-1">Tahun ajaran</td><td>: {r.tahunAjaran}</td></tr>
+                                            <tr><td className="py-1">Nama sekolah</td><td>: {r.sekolah}</td></tr>
+                                            <tr><td className="py-1">Nama Kepala Sekolah</td><td>: {printType === 'blank' ? '.....................................................' : (r.namaKepsek || '-')}</td></tr>
+                                            <tr><td className="py-1">Nama Guru Kelas</td><td>: {printType === 'blank' ? '.....................................................' : (r.namaGuru || '-')}</td></tr>
+                                            <tr><td className="py-1">Jenjang</td><td>: {r.jenjang}</td></tr>
+                                            <tr><td className="py-1">Kecamatan</td><td>: {r.kecamatan}</td></tr>
+                                            <tr><td className="py-1">Triwulan</td><td>: {r.triwulan}</td></tr>
+                                            <tr><td className="py-1">Kelas</td><td>: {r.kelas}</td></tr>
+                                            <tr><td className="py-1">Rombongan Belajar</td><td>: {r.rombel}</td></tr>
+                                            <tr><td className="py-1">Jumlah siswa</td><td>: {r.jumlahSiswa} Orang</td></tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 className="font-bold text-sm mt-4 mb-2">A. Capaian Target Kinerja</h3>
+                                    <table className="w-full text-xs mb-6 print-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Indikator</th>
+                                                <th>Target Kinerja</th>
+                                                <th className="text-center">Capaian<br/>(Ya/Belum)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td rowSpan="3" className="font-bold align-top">Iklim Keamanan</td>
+                                                <td>Semua siswa merasa aman di sekolah</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_aman_1 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Semua kasus kekerasan ditangani ≤ 3 hari</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_aman_2 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Sekolah memiliki peraturan/tata tertib untuk mewujudkan keamanan</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_aman_3 ? 'Ya' : 'Belum')}</td></tr>
+
+                                            <tr><td rowSpan="3" className="font-bold align-top">Iklim Kebhinekaan</td>
+                                                <td>Semua siswa merasa dihargai dalam perbedaan</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_bineka_1 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Tidak ada diskriminasi yang tidak ditangani</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_bineka_2 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Praktik pembelajaran menghargai kebhinekaan</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_bineka_3 ? 'Ya' : 'Belum')}</td></tr>
+
+                                            <tr><td rowSpan="3" className="font-bold align-top">Iklim Inklusivitas</td>
+                                                <td>Semua siswa berkebutuhan teridentifikasi</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_inklusif_1 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Guru melakukan adaptasi pembelajaran</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_inklusif_2 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Tidak ada siswa yang terabaikan dalam proses belajar</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_inklusif_3 ? 'Ya' : 'Belum')}</td></tr>
+
+                                            <tr><td rowSpan="3" className="font-bold align-top">Kualitas Pembelajaran</td>
+                                                <td>Pembelajaran memenuhi standar aktif & bermakna</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_belajar_1 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Semua guru menggunakan asesmen formatif</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_belajar_2 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Ada peningkatan capaian belajar (literasi/numerasi) tiap triwulan</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_belajar_3 ? 'Ya' : 'Belum')}</td></tr>
+
+                                            <tr><td rowSpan="3" className="font-bold align-top">Refleksi Guru</td>
+                                                <td>Setiap guru melakukan refleksi tiap triwulan</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_refleksi_1 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Setiap guru melakukan perbaikan nyata sebagai tindak lanjut refleksi</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_refleksi_2 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Ada perubahan praktik mengajar setiap guru</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_refleksi_3 ? 'Ya' : 'Belum')}</td></tr>
+
+                                            <tr><td rowSpan="3" className="font-bold align-top">Kepemimpinan Instruksional</td>
+                                                <td>Kepala sekolah aktif memantau pembelajaran di semua kelas</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_pimpin_1 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Supervisi berdampak pada perbaikan kinerja semua guru</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_pimpin_2 ? 'Ya' : 'Belum')}</td></tr>
+                                            <tr><td>Ada budaya belajar semua guru di sekolah</td>
+                                                <td className="text-center">{printType === 'blank' ? '( Ya / Belum )' : (r.k_pimpin_3 ? 'Ya' : 'Belum')}</td></tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 className="font-bold text-sm mt-4 mb-2">B. Capaian Target Kemampuan Literasi & Numerasi</h3>
+                                    <table className="w-full text-sm mb-6 print-table">
+                                        <tbody>
+                                            <tr>
+                                                <td className="font-bold w-1/3">Kemampuan Literasi</td>
+                                                <td>
+                                                    Materi: {r.materi_literasi || '-'}<br/><br/>
+                                                    Jumlah Siswa Tuntas: <strong>{printType === 'blank' ? '.......' : (r.tuntas_literasi || r.capaiLiterasi || 0)}</strong> dari {printType === 'blank' ? '.......' : r.jumlahSiswa}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="font-bold">Kemampuan Numerasi</td>
+                                                <td>
+                                                    Materi: {r.materi_numerasi || '-'}<br/><br/>
+                                                    Jumlah Siswa Tuntas: <strong>{printType === 'blank' ? '.......' : (r.tuntas_numerasi || r.capaiNumerasi || 0)}</strong> dari {printType === 'blank' ? '.......' : r.jumlahSiswa}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 className="font-bold text-sm mt-4 mb-2">C. Capaian Target Karakter</h3>
+                                    <table className="w-full text-xs mb-6 print-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Target Karakter Siswa</th>
+                                                <th className="text-center w-32">Jml Siswa Memenuhi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Siswa menunjukkan kebiasaan belajar teratur (kehadiran di sekolah, mengerjakan tugas, membawa perlengkapan belajar, mengikuti pembelajaran dengan sungguh-sungguh dan tertib)</td>
+                                                <td className="text-center font-bold">{printType === 'blank' ? '.......' : (r.karakter_teratur || 0)} orang</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Siswa tidak mudah menyerah saat belajar dan menghadapi soal literasi dan numerasi</td>
+                                                <td className="text-center font-bold">{printType === 'blank' ? '.......' : (r.karakter_pantang_menyerah || 0)} orang</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Siswa mampu menyelesaikan tugas literasi dan numerasi secara mandiri</td>
+                                                <td className="text-center font-bold">{printType === 'blank' ? '.......' : (r.karakter_mandiri || 0)} orang</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h3 className="font-bold text-sm mt-4 mb-2">D. Catatan Evaluasi / Tindak Lanjut</h3>
+                                    <div className="border border-black p-3 text-sm min-h-[60px] italic">
+                                        {r.catatan || '-'}
+                                    </div>
+                                    
+                                    {r.tautan_bukti && printType !== 'blank' && (
+                                        <div className="mt-3 text-xs">
+                                            <strong>Tautan Bukti Dukung:</strong> <span className="text-blue-600 underline break-all">{r.tautan_bukti}</span>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="mt-12 flex justify-between">
+                                        <div className="text-center w-1/2">
+                                            <p className="mb-20">Mengetahui,<br/>Kepala Sekolah</p>
+                                            <p className="font-bold uppercase underline">{printType === 'blank' ? '_____________________________' : (r.namaKepsek || '_____________________________')}</p>
+                                        </div>
+                                        <div className="text-center w-1/2">
+                                            <p className="mb-20"><br/>Guru Kelas</p>
+                                            <p className="font-bold uppercase underline">{printType === 'blank' ? '_____________________________' : (r.namaGuru || '_____________________________')}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
-                </div>
-                <div id="print-area" className="hidden print:block p-8 bg-white">
-                    <h1 className="text-2xl font-bold mb-4 text-center border-b pb-4">Laporan Pemantauan Pendidikan Dasar<br/>Kabupaten Donggala</h1>
-                    <table className="w-full text-left border-collapse text-xs border">
-                    <thead><tr><th className="border p-2">Kecamatan</th><th className="border p-2">Sekolah</th><th className="border p-2">Siswa</th><th className="border p-2">Lit</th><th className="border p-2">Num</th></tr></thead>
-                    <tbody>{records.map(r => (<tr key={r.id}><td className="border p-2">{r.kecamatan}</td><td className="border p-2">{r.sekolah}</td><td className="border p-2 text-center">{r.jumlahSiswa}</td><td className="border p-2 text-center">{r.capaiLiterasi}</td><td className="border p-2 text-center">{r.capaiNumerasi}</td></tr>))}</tbody>
-                    </table>
-                </div>
                 </div>
             );
         }
@@ -871,7 +1374,7 @@
         function KelolaPengguna({ showToast, GOOGLE_SCRIPT_URL, thresholds, onSaveThresholds }) {
             const [activeTab, setActiveTab] = useState('sekolah');
             
-            const [scoreForm, setScoreForm] = useState(thresholds || { pctTinggi: 80, pctSedang: 60, iklimTinggi: 4, iklimSedang: 3 });
+            const [scoreForm, setScoreForm] = useState(thresholds || { pctTinggi: 80, pctSedang: 60, iklimTinggi: 3, iklimSedang: 2 });
             
             const handleScoreChange = (e) => setScoreForm({...scoreForm, [e.target.name]: Number(e.target.value)});
             
@@ -949,11 +1452,11 @@
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-slate-100 pb-4">
                                 <InputGroup label="Minimal Capaian 'Sangat Baik' (%)"><input type="number" name="pctTinggi" value={scoreForm.pctTinggi} onChange={handleScoreChange} required className="form-input font-bold text-emerald-700" min="0" max="100" /></InputGroup>
-                                <InputGroup label="Minimal Iklim 'Sangat Baik' (Skala)"><input type="number" name="iklimTinggi" value={scoreForm.iklimTinggi} onChange={handleScoreChange} required className="form-input font-bold text-emerald-700" min="1" max="5" step="0.1" /></InputGroup>
+                                <InputGroup label="Minimal Iklim 'Sangat Baik' (Skala 1-3)"><input type="number" name="iklimTinggi" value={scoreForm.iklimTinggi} onChange={handleScoreChange} required className="form-input font-bold text-emerald-700" min="1" max="3" step="1" /></InputGroup>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <InputGroup label="Minimal Capaian 'Cukup' (%)"><input type="number" name="pctSedang" value={scoreForm.pctSedang} onChange={handleScoreChange} required className="form-input font-bold text-amber-600" min="0" max="100" /></InputGroup>
-                                <InputGroup label="Minimal Iklim 'Cukup' (Skala)"><input type="number" name="iklimSedang" value={scoreForm.iklimSedang} onChange={handleScoreChange} required className="form-input font-bold text-amber-600" min="1" max="5" step="0.1" /></InputGroup>
+                                <InputGroup label="Minimal Iklim 'Cukup' (Skala 1-3)"><input type="number" name="iklimSedang" value={scoreForm.iklimSedang} onChange={handleScoreChange} required className="form-input font-bold text-amber-600" min="1" max="3" step="1" /></InputGroup>
                             </div>
                         </div>
                     )}
@@ -997,18 +1500,11 @@
                     return; 
                 }
 
-                // =========================================================================
-                // PERINGATAN JIKA ADA MASALAH PADA PENGAMBILAN DATA DI GOOGLE SHEETS
-                // =========================================================================
                 if (usersDB.length === 0 && GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL !== "MASUKKAN_LINK_APPS_SCRIPT_ANDA_DI_SINI") {
                     alert("Gagal Login: Data akun tidak ditemukan!\n\nPENTING: Jika Anda baru saja memperbarui Google Apps Script, Anda WAJIB melakukan 'Terapkan > Deployment Baru' (New Deployment). Jika tidak, sistem akan tetap membaca versi lama yang belum memiliki tabel Users.");
                     return;
                 }
 
-                // =========================================================================
-                // VALIDASI AKUN
-                // =========================================================================
-                // Menggunakan fungsi pembersihan (trim) tambahan untuk mencegah error spasi dari Google Sheets
                 const validUser = usersDB.find(u => {
                     const dbUser = String(u.username || '').trim().toLowerCase();
                     const dbPass = String(u.password || '').trim();
@@ -1020,7 +1516,7 @@
                 });
 
                 if (!validUser) { 
-                    alert('Username atau Password salah, atau peran akun yang dipilih tidak sesuai!'); 
+                    alert(`Gagal Login: Akun untuk Username '${username}' dan Role '${role === 'korwil' ? 'Korwil' : 'Dinas'}' tidak ditemukan, atau Password salah.\n\nPastikan data sudah tersimpan di Google Sheets dan Anda sudah refresh halaman.`); 
                     return; 
                 }
                 
@@ -1047,7 +1543,6 @@
                 <div className="absolute top-1/4 right-1/4 w-72 h-72 md:w-96 md:h-96 bg-indigo-500/30 rounded-full mix-blend-screen filter blur-[80px] animate-blob animation-delay-2000 pointer-events-none"></div>
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
 
-                {/* Wrapper kartu login dibatasi tingginya dan diberi efek scroll di dalam */}
                 <div className="relative z-10 bg-white/95 backdrop-blur-xl max-w-md w-full rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden border border-white/20 animate-slide-in flex flex-col max-h-[95vh]">
                     
                     <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-5 md:p-6 text-center shadow-[inset_0_-10px_20px_rgba(0,0,0,0.2)] relative overflow-hidden flex-shrink-0">
@@ -1058,7 +1553,6 @@
                         <p className="relative z-10 text-blue-100 text-xs md:text-sm font-medium opacity-90">Sistem Pemantauan Pendidikan<br/>Kabupaten Donggala</p>
                     </div>
                     
-                    {/* Bagian Form dapat di-scroll jika layar terlalu kecil */}
                     <div className="overflow-y-auto no-scrollbar p-6">
                         <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
                             <div>
