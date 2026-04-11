@@ -23,6 +23,9 @@
     <script src="https://unpkg.com/react-is@18.2.0/umd/react-is.production.min.js"></script>
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 
+    <!-- 6. Library Excel (SheetJS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <style>
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -114,6 +117,11 @@
                 const saved = localStorage.getItem('monev_thresholds');
                 return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
             });
+
+            const handleSaveThresholds = (newT) => {
+                setThresholds(newT);
+                localStorage.setItem('monev_thresholds', JSON.stringify(newT));
+            };
 
             useEffect(() => {
                 if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === "MASUKKAN_LINK_APPS_SCRIPT_ANDA_DI_SINI") return;
@@ -243,7 +251,7 @@
                     <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-slate-800 p-2 mb-3 rounded transition-colors">
                         <i className="fas fa-sign-out-alt"></i> Keluar Akun
                     </button>
-                    Versi 6.3
+                    Versi 7.1
                     </div>
                 </aside>
 
@@ -268,7 +276,7 @@
                     {activeTab === 'input' && <InputData onSubmit={handleAddRecord} user={user} />}
                     {activeTab === 'monitoring' && <Monitoring records={accessibleRecords} onDelete={handleDelete} user={user} thresholds={thresholds} npsnDB={npsnDB} />}
                     {activeTab === 'laporan' && <Laporan records={accessibleRecords} user={user} />}
-                    {activeTab === 'pengguna' && <KelolaPengguna showToast={showToast} GOOGLE_SCRIPT_URL={GOOGLE_SCRIPT_URL} />}
+                    {activeTab === 'pengguna' && <KelolaPengguna showToast={showToast} GOOGLE_SCRIPT_URL={GOOGLE_SCRIPT_URL} thresholds={thresholds} onSaveThresholds={handleSaveThresholds} />}
 
                     {toast && (
                         <div className={`fixed top-20 md:bottom-6 md:top-auto right-4 md:right-6 px-4 py-3 rounded-lg shadow-lg text-white font-medium flex items-center gap-2 transition-all z-50 animate-slide-in ${toast.type === 'error' ? 'bg-red-500' : toast.type === 'info' ? 'bg-blue-500' : 'bg-emerald-600'}`}>
@@ -445,7 +453,6 @@
             const isSekolah = user?.role === 'sekolah';
 
             const renderCardValue = (key, isLitNum = false) => {
-                // Tampilan untuk Admin Sekolah (Satu Baris Saja)
                 if (isSekolah) {
                     const s = stats.ALL;
                     if (isLitNum) {
@@ -467,7 +474,6 @@
                     );
                 }
 
-                // Tampilan untuk Dinas dan Korwil (Dua Baris SD/SMP, Merah/Biru)
                 if (isLitNum) {
                     return (
                         <div className="flex flex-col w-full text-xs md:text-sm font-bold tracking-tight mt-1">
@@ -508,7 +514,6 @@
             return (
                 <div className="space-y-6">
                 
-                {/* --- BANNER PANDUAN KHUSUS SEKOLAH --- */}
                 {isSekolah && (
                     <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-5 md:p-6 rounded-xl shadow-md mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-slide-in">
                         <div className="flex items-center gap-4">
@@ -680,10 +685,19 @@
                 if (!formData.sekolah || !formData.rombel || !formData.jumlahSiswa || !formData.tuntas_literasi || !formData.tuntas_numerasi || !formData.namaGuru || !formData.namaKepsek) { 
                     setError('Mohon lengkapi semua field yang wajib diisi (termasuk nama guru dan kepsek).'); return; 
                 }
-                const siswa = Number(formData.jumlahSiswa), lit = Number(formData.tuntas_literasi), num = Number(formData.tuntas_numerasi);
+                const siswa = Number(formData.jumlahSiswa);
+                const lit = Number(formData.tuntas_literasi);
+                const num = Number(formData.tuntas_numerasi);
+                const kar1 = Number(formData.karakter_teratur || 0);
+                const kar2 = Number(formData.karakter_pantang_menyerah || 0);
+                const kar3 = Number(formData.karakter_mandiri || 0);
+
                 if (siswa <= 0) { setError('Jumlah siswa harus lebih dari 0.'); return; }
                 if (lit > siswa) { setError('Siswa Tuntas Literasi tidak boleh melebihi Total Siswa.'); return; }
                 if (num > siswa) { setError('Siswa Tuntas Numerasi tidak boleh melebihi Total Siswa.'); return; }
+                if (kar1 > siswa || kar2 > siswa || kar3 > siswa) {
+                    setError('Pengisian jumlah siswa pada Target Karakter tidak boleh melebihi Total Siswa Rombel.'); return;
+                }
 
                 const submissionData = {
                     ...formData,
@@ -799,7 +813,7 @@
                                 </div>
                                 <div className="mt-4 pt-4 border-t border-slate-100">
                                     <InputGroup label="Jumlah Siswa Tuntas Literasi">
-                                        <input type="number" name="tuntas_literasi" value={formData.tuntas_literasi} onChange={handleChange} className="form-input border-blue-300 font-bold text-blue-700" placeholder="Contoh: 25" min="0" />
+                                        <input type="number" name="tuntas_literasi" value={formData.tuntas_literasi} onChange={handleChange} className="form-input border-blue-300 font-bold text-blue-700" placeholder="Contoh: 25" min="0" max={formData.jumlahSiswa || ""} />
                                     </InputGroup>
                                 </div>
                             </div>
@@ -812,7 +826,7 @@
                                 </div>
                                 <div className="mt-4 pt-4 border-t border-slate-100">
                                     <InputGroup label="Jumlah Siswa Tuntas Numerasi">
-                                        <input type="number" name="tuntas_numerasi" value={formData.tuntas_numerasi} onChange={handleChange} className="form-input border-indigo-300 font-bold text-indigo-700" placeholder="Contoh: 20" min="0" />
+                                        <input type="number" name="tuntas_numerasi" value={formData.tuntas_numerasi} onChange={handleChange} className="form-input border-indigo-300 font-bold text-indigo-700" placeholder="Contoh: 20" min="0" max={formData.jumlahSiswa || ""} />
                                     </InputGroup>
                                 </div>
                             </div>
@@ -825,19 +839,19 @@
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                                 <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa menunjukkan kebiasaan belajar teratur (kehadiran, mengerjakan tugas, membawa perlengkapan, sungguh-sungguh)</p>
                                 <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
-                                    <input type="number" name="karakter_teratur" value={formData.karakter_teratur} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                    <input type="number" name="karakter_teratur" value={formData.karakter_teratur} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" max={formData.jumlahSiswa || ""} /> <span className="text-xs text-slate-500 font-bold">Orang</span>
                                 </div>
                             </div>
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                                 <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa tidak mudah menyerah saat belajar dan menghadapi soal literasi dan numerasi</p>
                                 <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
-                                    <input type="number" name="karakter_pantang_menyerah" value={formData.karakter_pantang_menyerah} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                    <input type="number" name="karakter_pantang_menyerah" value={formData.karakter_pantang_menyerah} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" max={formData.jumlahSiswa || ""} /> <span className="text-xs text-slate-500 font-bold">Orang</span>
                                 </div>
                             </div>
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                                 <p className="text-xs md:text-sm text-slate-700 flex-1 pr-4">Siswa mampu menyelesaikan tugas literasi dan numerasi secara mandiri</p>
                                 <div className="w-full md:w-48 flex items-center gap-2 flex-shrink-0">
-                                    <input type="number" name="karakter_mandiri" value={formData.karakter_mandiri} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" /> <span className="text-xs text-slate-500 font-bold">Orang</span>
+                                    <input type="number" name="karakter_mandiri" value={formData.karakter_mandiri} onChange={handleChange} className="form-input text-sm font-bold" placeholder="Jml Siswa" min="0" max={formData.jumlahSiswa || ""} /> <span className="text-xs text-slate-500 font-bold">Orang</span>
                                 </div>
                             </div>
                         </div>
@@ -979,7 +993,7 @@
                 
                 const belScore = Number(row.k_belajar_1||0) + Number(row.k_belajar_2||0) + Number(row.k_belajar_3||0);
                 const refScore = Number(row.k_refleksi_1||0) + Number(row.k_refleksi_2||0) + Number(row.k_refleksi_3||0);
-                const pimScore = Number(row.k_pimpin_1||0) + Number(r.k_pimpin_2||0) + Number(r.k_pimpin_3||0);
+                const pimScore = Number(row.k_pimpin_1||0) + Number(row.k_pimpin_2||0) + Number(row.k_pimpin_3||0);
 
                 const secPct = Math.round((secScore / 3) * 100) || 0;
                 const divPct = Math.round((divScore / 3) * 100) || 0;
@@ -1284,16 +1298,33 @@
 
             const recordsToPrint = printType === 'blank' ? [blankRecord] : filteredRecords;
 
-            const handleExportCSV = () => {
+            const handleExportExcel = () => {
                 if(records.length === 0) return alert('Tidak ada data.');
                 const headers = [
                     "ID", "Tahun Ajaran", "Sekolah", "Kecamatan", "Jenjang", "Kelas", "Rombel", "Triwulan", 
                     "Jumlah Siswa", "Nama Kepala Sekolah", "Nama Guru Kelas",
-                    "Tuntas Literasi", "Tuntas Numerasi", 
-                    "Skor Keamanan", "Skor Kebinekaan", "Skor Inklusif", "Skor Pembelajaran", "Skor Refleksi", "Skor Kepemimpinan",
-                    "Karakter Teratur", "Karakter Pantang Menyerah", "Karakter Mandiri", "Link Bukti Dukung", "Catatan"
+                    "Tuntas Literasi (Siswa)", "Persentase Literasi (%)",
+                    "Tuntas Numerasi (Siswa)", "Persentase Numerasi (%)",
+                    "Skor Keamanan (Max 3)", "Persentase Keamanan (%)",
+                    "Skor Kebinekaan (Max 3)", "Persentase Kebinekaan (%)",
+                    "Skor Inklusif (Max 3)", "Persentase Inklusif (%)",
+                    "Skor Pembelajaran (Max 3)", "Persentase Pembelajaran (%)",
+                    "Skor Refleksi (Max 3)", "Persentase Refleksi (%)",
+                    "Skor Kepemimpinan (Max 3)", "Persentase Kepemimpinan (%)",
+                    "Karakter Teratur (Siswa)", "Persentase Karakter Teratur (%)",
+                    "Karakter Pantang Menyerah (Siswa)", "Persentase Pantang Menyerah (%)",
+                    "Karakter Mandiri (Siswa)", "Persentase Mandiri (%)",
+                    "Link Bukti Dukung", "Catatan"
                 ];
+
                 const rows = records.map(r => {
+                    const siswa = Number(r.jumlahSiswa) || 0;
+
+                    const litRaw = Number(r.tuntas_literasi || r.capaiLiterasi || 0);
+                    const numRaw = Number(r.tuntas_numerasi || r.capaiNumerasi || 0);
+                    const litPct = siswa ? Math.round((litRaw / siswa) * 100) : 0;
+                    const numPct = siswa ? Math.round((numRaw / siswa) * 100) : 0;
+
                     const secScore = Number(r.k_aman_1||0) + Number(r.k_aman_2||0) + Number(r.k_aman_3||0) || Number(r.keamanan||0);
                     const divScore = Number(r.k_bineka_1||0) + Number(r.k_bineka_2||0) + Number(r.k_bineka_3||0) || Number(r.kebinekaan||0);
                     const incScore = Number(r.k_inklusif_1||0) + Number(r.k_inklusif_2||0) + Number(r.k_inklusif_3||0) || Number(r.inklusivitas||0);
@@ -1301,19 +1332,43 @@
                     const refScore = Number(r.k_refleksi_1||0) + Number(r.k_refleksi_2||0) + Number(r.k_refleksi_3||0);
                     const pimScore = Number(r.k_pimpin_1||0) + Number(r.k_pimpin_2||0) + Number(r.k_pimpin_3||0);
 
+                    const secPct = Math.round((secScore / 3) * 100) || 0;
+                    const divPct = Math.round((divScore / 3) * 100) || 0;
+                    const incPct = Math.round((incScore / 3) * 100) || 0;
+                    const belPct = Math.round((belScore / 3) * 100) || 0;
+                    const refPct = Math.round((refScore / 3) * 100) || 0;
+                    const pimPct = Math.round((pimScore / 3) * 100) || 0;
+
+                    const karTeratur = Number(r.karakter_teratur || 0);
+                    const karPantang = Number(r.karakter_pantang_menyerah || 0);
+                    const karMandiri = Number(r.karakter_mandiri || 0);
+
+                    const pctTeratur = siswa ? Math.round((karTeratur / siswa) * 100) : 0;
+                    const pctPantang = siswa ? Math.round((karPantang / siswa) * 100) : 0;
+                    const pctMandiri = siswa ? Math.round((karMandiri / siswa) * 100) : 0;
+
                     return [
                         r.id, r.tahunAjaran||"-", r.sekolah, r.kecamatan, r.jenjang, r.kelas, r.rombel, r.triwulan, 
-                        r.jumlahSiswa, `"${r.namaKepsek || '-'}"`, `"${r.namaGuru || '-'}"`,
-                        r.tuntas_literasi||r.capaiLiterasi||0, r.tuntas_numerasi||r.capaiNumerasi||0, 
-                        secScore, divScore, incScore, belScore, refScore, pimScore,
-                        r.karakter_teratur||0, r.karakter_pantang_menyerah||0, r.karakter_mandiri||0, 
-                        `"${r.tautan_bukti || ''}"`, `"${r.catatan || ''}"`
+                        siswa, `"${r.namaKepsek || '-'}"`, `"${r.namaGuru || '-'}"`,
+                        litRaw, litPct,
+                        numRaw, numPct,
+                        secScore, secPct,
+                        divScore, divPct,
+                        incScore, incPct,
+                        belScore, belPct,
+                        refScore, refPct,
+                        pimScore, pimPct,
+                        karTeratur, pctTeratur,
+                        karPantang, pctPantang,
+                        karMandiri, pctMandiri,
+                        r.tautan_bukti || '', r.catatan || ''
                     ];
                 });
-                const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `Laporan_MONEV_${new Date().getTime()}.csv`);
-                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+
+                const worksheet = window.XLSX.utils.aoa_to_sheet([headers, ...rows]);
+                const workbook = window.XLSX.utils.book_new();
+                window.XLSX.utils.book_append_sheet(workbook, worksheet, "Data_MONEV");
+                window.XLSX.writeFile(workbook, `Laporan_MONEV_${new Date().getTime()}.xlsx`);
             };
 
             const doPrint = (type) => {
@@ -1333,25 +1388,28 @@
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             
-                            <div className="border border-amber-200 bg-amber-50/30 p-5 rounded-2xl text-left md:col-span-2 shadow-sm">
-                                <div className="flex justify-between items-center mb-1">
-                                    <h3 className="font-bold text-base md:text-lg text-amber-900">Unduh Format Instrumen Kosong</h3>
-                                </div>
-                                <p className="text-xs text-slate-600 mb-4">Cetak formulir instrumen kosong untuk diisi secara manual oleh guru sebelum diinput ke dalam sistem.</p>
-                                
-                                <div className="flex flex-wrap gap-2 mb-4 bg-white p-3 rounded-lg border border-amber-200">
-                                    <select value={blankKelas} onChange={(e) => setBlankKelas(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none focus:border-amber-500 cursor-pointer">
-                                        {KELAS_LIST.map(k => <option key={k} value={k}>{k}</option>)}
-                                    </select>
-                                    <select value={blankTriwulan} onChange={(e) => setBlankTriwulan(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none focus:border-amber-500 cursor-pointer">
-                                        {TRIWULAN_LIST.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
+                            {/* Card Cetak Blanko Kosong (Hanya Muncul Untuk Sekolah) */}
+                            {user?.role === 'sekolah' && (
+                                <div className="border border-amber-200 bg-amber-50/30 p-5 rounded-2xl text-left md:col-span-2 shadow-sm">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <h3 className="font-bold text-base md:text-lg text-amber-900">Unduh Format Instrumen Kosong</h3>
+                                    </div>
+                                    <p className="text-xs text-slate-600 mb-4">Cetak formulir instrumen kosong untuk diisi secara manual oleh guru sebelum diinput ke dalam sistem.</p>
+                                    
+                                    <div className="flex flex-wrap gap-2 mb-4 bg-white p-3 rounded-lg border border-amber-200">
+                                        <select value={blankKelas} onChange={(e) => setBlankKelas(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none focus:border-amber-500 cursor-pointer">
+                                            {KELAS_LIST.map(k => <option key={k} value={k}>{k}</option>)}
+                                        </select>
+                                        <select value={blankTriwulan} onChange={(e) => setBlankTriwulan(e.target.value)} className="p-2 border border-slate-300 rounded text-xs text-slate-700 flex-1 min-w-[120px] outline-none focus:border-amber-500 cursor-pointer">
+                                            {TRIWULAN_LIST.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                    </div>
 
-                                <button onClick={() => doPrint('blank')} className="w-full bg-amber-600 text-white py-2.5 rounded-lg text-xs md:text-sm font-bold hover:bg-amber-700 flex items-center justify-center gap-2 shadow-sm transition-transform hover:-translate-y-0.5">
-                                    <i className="fas fa-file-pdf"></i> Cetak Formulir Kosong
-                                </button>
-                            </div>
+                                    <button onClick={() => doPrint('blank')} className="w-full bg-amber-600 text-white py-2.5 rounded-lg text-xs md:text-sm font-bold hover:bg-amber-700 flex items-center justify-center gap-2 shadow-sm transition-transform hover:-translate-y-0.5">
+                                        <i className="fas fa-file-pdf"></i> Cetak Formulir Kosong
+                                    </button>
+                                </div>
+                            )}
 
                             <div className="border border-emerald-200 bg-emerald-50/30 p-5 rounded-2xl text-left md:col-span-2 shadow-sm">
                                 <div className="flex justify-between items-center mb-1">
@@ -1388,10 +1446,10 @@
                             </div>
 
                             <div className="border border-blue-200 bg-blue-50/30 p-5 rounded-2xl text-left md:col-span-2">
-                                <h3 className="font-bold text-base md:text-lg text-blue-900 mb-1">Laporan Excel (CSV) Seluruh Data</h3>
+                                <h3 className="font-bold text-base md:text-lg text-blue-900 mb-1">Laporan Excel (.xlsx) Seluruh Data</h3>
                                 <p className="text-xs text-slate-600 mb-4">Mencakup semua data jawaban per indikator, materi literasi numerasi, dan URL bukti dukung yang dikirimkan sekolah.</p>
                                 <div className="flex gap-2">
-                                    <button onClick={handleExportCSV} className="w-full bg-blue-600 text-white border border-blue-700 py-3 rounded-lg text-xs md:text-sm font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-sm transition-transform hover:-translate-y-0.5"><i className="fas fa-file-excel"></i> Download File CSV Lengkap</button>
+                                    <button onClick={handleExportExcel} className="w-full bg-blue-600 text-white border border-blue-700 py-3 rounded-lg text-xs md:text-sm font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-sm transition-transform hover:-translate-y-0.5"><i className="fas fa-file-excel"></i> Download File Excel Lengkap</button>
                                 </div>
                             </div>
 
